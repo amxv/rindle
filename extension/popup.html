@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rindle</title>
+<style>
+  :root{color-scheme:light dark}body{font:13px -apple-system,BlinkMacSystemFont,sans-serif;min-width:268px;margin:0;padding:20px;line-height:1.5}
+  h1{font-size:18px;margin:0 0 3px}p{color:gray;margin:6px 0 14px}#status{padding:11px;border:1px solid #8885;border-radius:8px;margin-bottom:12px;overflow-wrap:anywhere}
+  button{width:100%;border:0;border-radius:8px;background:#2478df;color:#fff;padding:10px;cursor:pointer;font-weight:600}button:disabled{opacity:.55;cursor:wait}
+  label{display:block;margin:12px 0 8px}select{width:100%;padding:7px;border:1px solid #8885;border-radius:7px;margin-top:5px;background:transparent;color:inherit}
+  small{display:block;opacity:.7;margin-top:12px}
+</style></head>
+<body>
+  <h1>Rindle</h1>
+  <p>Safari ↔ browser history, privately on your Mac.</p>
+  <div id="status" role="status">Checking connection…</div>
+  <label for="browser">This browser
+    <select id="browser">
+      <option value="dia">Dia</option>
+      <option value="chrome">Google Chrome</option>
+      <option value="edge">Microsoft Edge</option>
+    </select>
+  </label>
+  <button id="sync">Sync now</button>
+  <small>No visited websites are opened by Rindle.</small>
+  <script src="popup.js"></script>
+</body>
+</html>

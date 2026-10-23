@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Write, Edit
 
 Use this skill whenever the user asks for a new release.
 
-`Cargo.toml` owns the package version. `docs/src/content/docs/changelog.md` owns curated release notes. `dist` owns release artifacts, GitHub Release creation, attestations, and the one configured installation/publishing method: npm **or** direct shell/PowerShell installers.
+`Cargo.toml` owns the package version. `docs/src/content/docs/changelog.md` owns curated release notes. `dist` owns release artifacts, GitHub Release creation, attestations, and the **macOS-only direct shell installer**.
 
 ## 1. Inspect release state
 
@@ -103,7 +103,7 @@ dist plan
 git diff --check
 ```
 
-`dist plan` must describe the expected platform archives, checksums, and release manifest. For `installers = ["npm"]`, expect an npm package and **no shell/PowerShell installer**. For `installers = ["shell", "powershell"]`, expect those installers and **no npm package or publish job**.
+`dist plan` must list **only** the Intel and Apple Silicon macOS archives, checksums, and `rindle-installer.sh`. Reject any Windows/Linux artifacts, PowerShell installers, npm package, or publish job.
 
 If crates.io publishing is enabled in `Cargo.toml` and this release is intended for crates.io too, also run:
 
@@ -180,7 +180,7 @@ gh release view "v${VERSION}" --json tagName,name,url,assets
 npm view "<npm-package>" version dist-tags.latest --json
 ```
 
-For direct distribution, instead verify that the website-hosted `/install.sh` and `/install.ps1` match the GitHub Release installer artifact names, and test the installer plus `upgrade --check` and `auto-update on|off|status` using an isolated/mock scheduler. Confirm the GitHub Release contains only the artifacts described by `dist plan`.
+For direct distribution, verify that the website-hosted **macOS-only** `/install.sh` resolves to the GitHub Release's `rindle-installer.sh`; test the installer plus `upgrade --check` and `auto-update on|off|status` using an isolated/mock scheduler. Confirm the release contains only the two macOS architectures and supporting artifacts described by `dist plan`.
 
 If crates.io publication was requested, publish/verify it separately and report its status separately from GitHub/npm.
 

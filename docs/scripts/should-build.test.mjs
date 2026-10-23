@@ -26,8 +26,7 @@ function fixture(t) {
   mkdirSync(path.join(root, 'internal'));
   mkdirSync(path.join(root, 'src'));
   writeFileSync(path.join(root, 'docs', 'index.md'), 'initial docs\n');
-  writeFileSync(path.join(root, 'docs', 'public', 'install.sh'), 'initial unix installer\n');
-  writeFileSync(path.join(root, 'docs', 'public', 'install.ps1'), 'initial windows installer\n');
+  writeFileSync(path.join(root, 'docs', 'public', 'install.sh'), 'initial macOS installer\n');
   writeFileSync(path.join(root, 'src', 'lib.rs'), 'initial Rust code\n');
   writeFileSync(path.join(root, 'internal', 'gateway.go'), 'initial code\n');
   git(root, 'add', '.');
@@ -72,7 +71,7 @@ test('any documentation change deploys', t => {
   assert.equal(f.build(), true);
 });
 
-for (const installer of ['install.sh', 'install.ps1']) {
+for (const installer of ['install.sh']) {
   test(`changes to docs/public/${installer} deploy docs`, t => {
     const f = fixture(t);
     f.commit(`docs/public/${installer}`, 'updated website installer\n');

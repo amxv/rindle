@@ -1,40 +1,39 @@
 ---
 title: Releases and installers
-description: Direct distribution using GitHub Releases and cargo-dist.
+description: Native macOS distribution through GitHub Releases and cargo-dist.
 order: 3
 category: Distribution
-summary: Supported targets, install scripts, and the eventual first release.
+summary: Mac installers, checksums, built-in upgrades, and release validation.
 ---
 
-Rindle uses **direct distribution**, not npm or crates.io. `dist-workspace.toml` configures `cargo-dist`; `.github/workflows/release.yml` is generated from that configuration.
+Rindle currently supports **macOS only**. `cargo-dist` packages both Apple Silicon (`aarch64-apple-darwin`) and Intel (`x86_64-apple-darwin`) archives with checksums and a shell installer. The unpacked extension is embedded in the Rust executable.
 
-## Platforms
+## Install after the first release
 
-The release configuration targets Apple Silicon and Intel macOS, ARM64 and x64 Linux, and x64 Windows. Releases will contain native archives and checksum files, plus shell and PowerShell installers.
-
-## Installing a release
-
-Once the first tagged release is published, users will be able to install with:
-
-```bash
+```sh
 curl -fsSL https://rindle.ashray.xyz/install.sh | sh
+rindle setup --browser dia
 ```
 
-For Windows, the PowerShell installer is available at `https://rindle.ashray.xyz/install.ps1`.
+**The first release is not yet published.** For now, use the [source quickstart](/docs/quickstart).
 
-**There is no published release yet.** The site hosts installer entry points now, but they cannot download a Rindle binary until the first release exists.
+## Upgrade
 
-The installed CLI includes `rindle upgrade` and `rindle upgrade --check`. Optional daily updates use launchd on macOS, systemd user timers on Linux, and Task Scheduler on Windows. Background updates are **off by default**.
+```sh
+rindle upgrade --check
+rindle upgrade
+rindle auto-update on
+rindle auto-update off
+```
 
-## Publishing
+Daily automatic CLI updates are opt-in and independent of history synchronization. The history sync schedule runs every three hours after `rindle setup`, unless `--no-schedule` was supplied.
 
-The package version in `Cargo.toml` must match the tag. Before the first release, implement and test the application behavior, update the [changelog](/docs/changelog), and then run:
+## Release process
 
-```bash
+```sh
 just check
 just docs-check
 dist plan
-just release-tag 0.1.0
 ```
 
-The tag triggers the GitHub Actions release workflow. Follow `.agents/skills/release/SKILL.md` for the complete procedure. Change `dist-workspace.toml` and run `dist generate` when modifying release configuration; never edit the generated workflow by hand.
+The generated workflow `.github/workflows/release.yml` must be regenerated with `dist generate` whenever `dist-workspace.toml` changes. We will not tag or publish the first release until Dia Native Messaging and iCloud autocomplete have passed the real-device acceptance test.

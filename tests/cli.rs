@@ -43,3 +43,13 @@ fn describes_auto_update() {
         .success()
         .stdout(predicate::str::contains("status"));
 }
+
+#[test]
+fn sync_help_includes_safe_dry_run_and_batch_limit() {
+    cli()
+        .args(["sync", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--dry-run"))
+        .stdout(predicate::str::contains("--limit"));
+}

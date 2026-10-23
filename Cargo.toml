@@ -3,14 +3,14 @@ name = "rindle"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.99.1"
-description = "Rindle CLI"
+description = "Private two-way Safari and Chromium history sync for macOS"
 license = "Apache-2.0"
 repository = "https://github.com/amxv/rindle"
 homepage = "https://rindle.ashray.xyz"
 readme = "README.md"
 publish = false
-include = ["/src/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE"]
-keywords = ["cli", "rust", "template"]
+include = ["/src/**", "/extension/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE"]
+keywords = ["history", "safari", "chromium", "sync"]
 categories = ["command-line-utilities"]
 
 [package.metadata.dist]
@@ -23,10 +23,15 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+url = "2.5"
 
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.1"
+tempfile = "3.23"
 
 [lints.rust]
 unsafe_code = "forbid"

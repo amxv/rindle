@@ -13,11 +13,13 @@ check-fast:
     cargo fmt --all -- --check
     cargo check --locked
     cargo clippy --locked --all-targets -- -D warnings
+    node --test extension/*.test.mjs
 
 check:
     cargo fmt --all -- --check
     cargo clippy --locked --all-targets -- -D warnings
     cargo test --locked
+    node --test extension/*.test.mjs
 
 build:
     cargo build --locked
@@ -27,6 +29,9 @@ build-release:
 
 run *args:
     cargo run -- {{args}}
+
+extension-test:
+    node --test extension/*.test.mjs
 
 docs-install:
     cd docs && bun install --frozen-lockfile

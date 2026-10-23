@@ -21,21 +21,12 @@ struct Preferences {
 }
 
 fn user_home() -> Result<PathBuf> {
-    let home = env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
-        .context("Cannot determine home directory")?;
+    let home = env::var_os("HOME").context("Cannot determine home directory")?;
     Ok(PathBuf::from(home))
 }
 
 fn preference_file() -> Result<PathBuf> {
-    let base = if cfg!(windows) {
-        PathBuf::from(env::var_os("APPDATA").context("APPDATA is not set")?)
-    } else if cfg!(target_os = "macos") {
-        user_home()?.join("Library/Application Support")
-    } else if let Some(xdg) = env::var_os("XDG_CONFIG_HOME") {
-        PathBuf::from(xdg)
-    } else {
-        user_home()?.join(".config")
-    };
+    let base = user_home()?.join("Library/Application Support");
     Ok(base.join(APP_NAME).join("auto-update.conf"))
 }
 
@@ -248,21 +239,6 @@ fn plist(exe: &Path, log: &Path) -> String {
     )
 }
 
-fn service_unit(exe: &Path) -> String {
-    let path = exe
-        .to_string_lossy()
-        .replace('%', "%%")
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"");
-    format!(
-        "[Unit]\nDescription={APP_NAME} daily updates\n[Service]\nType=oneshot\nExecStart=\"{path}\" upgrade --automatic\n"
-    )
-}
-
-fn timer_unit() -> &'static str {
-    "[Unit]\nDescription=Daily CLI release check\n[Timer]\nOnCalendar=daily\nPersistent=true\nRandomizedDelaySec=30min\n[Install]\nWantedBy=timers.target\n"
-}
-
 fn launchctl_domain() -> Result<String> {
     let out = Command::new("id").arg("-u").output()?;
     if !out.status.success() {
@@ -277,87 +253,38 @@ fn launchd_path() -> Result<PathBuf> {
         .join(format!("com.{SERVICE_ID}.plist")))
 }
 
-fn systemd_paths() -> Result<(PathBuf, PathBuf)> {
-    let base = user_home()?.join(".config/systemd/user");
-    Ok((
-        base.join(format!("{SERVICE_ID}.service")),
-        base.join(format!("{SERVICE_ID}.timer")),
-    ))
-}
-
 fn install_schedule(exe: &Path) -> Result<()> {
-    if cfg!(target_os = "macos") {
-        let log_dir = user_home()?.join("Library/Logs").join(APP_NAME);
-        fs::create_dir_all(&log_dir)?;
-        let path = launchd_path()?;
-        write_atomic(
-            &path,
-            plist(exe, &log_dir.join("auto-update.log")).as_bytes(),
-        )?;
-        let domain = launchctl_domain()?;
-        let label = format!("{domain}/com.{SERVICE_ID}");
-        if successful("launchctl", &["print", &label]) {
-            return Ok(());
-        }
-        // Headless terminals have no GUI domain; the saved plist loads at login.
-        if successful("launchctl", &["print", &domain]) {
-            execute(
-                "launchctl",
-                &["bootstrap", &domain, &path.to_string_lossy()],
-            )?;
-        }
-    } else if cfg!(target_os = "linux") {
-        let (service, timer) = systemd_paths()?;
-        write_atomic(&service, service_unit(exe).as_bytes())?;
-        write_atomic(&timer, timer_unit().as_bytes())?;
-        execute("systemctl", &["--user", "daemon-reload"])?;
+    let log_dir = user_home()?.join("Library/Logs").join(APP_NAME);
+    fs::create_dir_all(&log_dir)?;
+    let path = launchd_path()?;
+    write_atomic(
+        &path,
+        plist(exe, &log_dir.join("auto-update.log")).as_bytes(),
+    )?;
+    let domain = launchctl_domain()?;
+    let label = format!("{domain}/com.{SERVICE_ID}");
+    if successful("launchctl", &["print", &label]) {
+        return Ok(());
+    }
+    // Headless terminals have no GUI domain; the saved plist loads at login.
+    if successful("launchctl", &["print", &domain]) {
         execute(
-            "systemctl",
-            &["--user", "enable", "--now", &format!("{SERVICE_ID}.timer")],
+            "launchctl",
+            &["bootstrap", &domain, &path.to_string_lossy()],
         )?;
-    } else if cfg!(windows) {
-        let task = format!(r"\{SERVICE_ID}");
-        let action = format!("\"{}\" upgrade --automatic", exe.display());
-        execute(
-            "schtasks.exe",
-            &[
-                "/Create", "/F", "/SC", "DAILY", "/ST", "10:00", "/TN", &task, "/TR", &action,
-            ],
-        )?;
-    } else {
-        bail!("Automatic updates not supported on this operating system")
     }
     Ok(())
 }
 
 fn remove_schedule() -> Result<()> {
-    if cfg!(target_os = "macos") {
-        let path = launchd_path()?;
-        if path.exists() {
-            fs::remove_file(&path)?;
-        }
-        let domain = launchctl_domain()?;
-        let label = format!("{domain}/com.{SERVICE_ID}");
-        if successful("launchctl", &["print", &label]) {
-            execute("launchctl", &["bootout", &label])?;
-        }
-    } else if cfg!(target_os = "linux") {
-        let (service, timer) = systemd_paths()?;
-        let _ = execute(
-            "systemctl",
-            &["--user", "disable", "--now", &format!("{SERVICE_ID}.timer")],
-        );
-        for path in [service, timer] {
-            if path.exists() {
-                fs::remove_file(path)?;
-            }
-        }
-        execute("systemctl", &["--user", "daemon-reload"])?;
-    } else if cfg!(windows) {
-        let task = format!(r"\{SERVICE_ID}");
-        if successful("schtasks.exe", &["/Query", "/TN", &task]) {
-            execute("schtasks.exe", &["/Delete", "/F", "/TN", &task])?;
-        }
+    let path = launchd_path()?;
+    if path.exists() {
+        fs::remove_file(&path)?;
+    }
+    let domain = launchctl_domain()?;
+    let label = format!("{domain}/com.{SERVICE_ID}");
+    if successful("launchctl", &["print", &label]) {
+        execute("launchctl", &["bootout", &label])?;
     }
     Ok(())
 }
@@ -387,10 +314,5 @@ mod tests {
         assert!(launch.contains("<integer>86400</integer>"));
         assert!(launch.contains("upgrade</string><string>--automatic"));
         assert!(launch.contains("Some &amp; App"));
-        assert!(timer_unit().contains("OnCalendar=daily"));
-        assert!(timer_unit().contains("Persistent=true"));
-        assert!(
-            service_unit(Path::new("/home/app with spaces/tool")).contains("upgrade --automatic")
-        );
     }
 }

@@ -116,21 +116,13 @@ fn install(version: &str, automatic: bool) -> Result<()> {
     let exe = env::current_exe()
         .context("Cannot determine current executable")?
         .canonicalize()?;
-    let filename = if cfg!(windows) {
-        "install.ps1"
-    } else {
-        "install.sh"
-    };
-    let url = format!("{INSTALLER_SITE}/{filename}");
-    let suffix = if cfg!(windows) { "ps1" } else { "sh" };
-    let path: PathBuf =
-        env::temp_dir().join(format!("rindle-upgrade-{}.{}", std::process::id(), suffix));
+    let url = format!("{INSTALLER_SITE}/install.sh");
+    let path: PathBuf = env::temp_dir().join(format!("rindle-upgrade-{}.sh", std::process::id()));
     if path.exists() {
         bail!("Temporary installer already exists at {}", path.display())
     }
 
-    let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
-    let fetched = Command::new(curl)
+    let fetched = Command::new("curl")
         .args([
             "--proto",
             "=https",
@@ -153,42 +145,14 @@ fn install(version: &str, automatic: bool) -> Result<()> {
         return Ok(());
     }
 
-    let mut command;
-    if cfg!(windows) {
-        command = Command::new("powershell.exe");
-        command.args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-        ]);
-        command
-            .arg(&path)
-            .arg("-Upgrade")
-            .arg("-Target")
-            .arg(&exe)
-            .arg("-WaitForPid")
-            .arg(std::process::id().to_string());
-        command.env("CLI_VERSION", version);
-    } else {
-        command = Command::new("sh");
-        command.arg(&path).arg("upgrade");
-        command.env("CLI_UPGRADE_TARGET", &exe);
-        command.env("CLI_VERSION", version);
-    }
+    let mut command = Command::new("sh");
+    command.arg(&path).arg("upgrade");
+    command.env("CLI_UPGRADE_TARGET", &exe);
+    command.env("CLI_VERSION", version);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    if cfg!(windows) {
-        let child = command
-            .spawn()
-            .context("Could not start detached Windows upgrade")?;
-        println!("Upgrade started. Replacement completes after this command exits.");
-        drop(child);
-        return Ok(()); // Windows helper removes the temporary installer script.
-    }
     let result = command.status();
     let _ = fs::remove_file(&path);
     if !result.context("Installer failed to execute")?.success() {

@@ -1,10 +1,10 @@
 const generatedIdentity = {
   name: "Rindle",
-  strapline: "A Rust CLI foundation",
-  description: "Rindle is an early-stage Rust command-line project. The repository includes a minimal CLI, checks, documentation, and direct-release infrastructure.",
+  strapline: "One history across your browsers",
+  description: "Privately sync visited URLs between Safari on your iPhone and Dia, Chrome, or Edge on your Mac. No URL replay, no third-party server.",
   repoUrl: "https://github.com/amxv/rindle",
-  footerText: "A minimal Rust CLI, ready for its first product commands.",
-  distributionText: "Direct GitHub Releases with native installers; no npm publishing."
+  footerText: "Your history belongs to you. Private sync, powered by your Mac.",
+  distributionText: "Native macOS builds for Apple Silicon and Intel; direct GitHub Releases."
 } as const;
 
 export const siteConfig = {

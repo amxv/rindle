@@ -1,40 +1,42 @@
 ---
-title: Customize the CLI
-description: Add the first product command to Rindle without disturbing release plumbing.
+title: Architecture and development
+description: How Rindle's Rust history engine and browser extension work.
 order: 2
 category: Development
-summary: Where application behavior belongs and how to keep the CLI testable.
+summary: Native Messaging, Safari history injection, durable queues, and safeguards.
 ---
 
-## Rust structure
+## Components
 
-```text
-src/main.rs       process exit/error boundary
-src/lib.rs        application dispatch
-src/cli.rs        clap parser model
-src/commands/     command implementations
-tests/            binary-level integration tests
-```
+| Component | Job |
+| --- | --- |
+| `src/macos/safari.rs` | Read iCloud-origin visits, validate Safari history schema, and back up before inserting |
+| `src/macos/sync.rs` | Stage URL transfers and trigger one hidden Apple.com heartbeat when needed |
+| `src/macos/setup.rs` | Install embedded extension files, browser-native hosts, and launchd schedule |
+| `src/state.rs` | Deduplication ledger, browser-specific queues, acknowledged imports |
+| `src/native.rs` | One-shot Native Messaging protocol with a fixed extension ID |
+| `src/urls.rs` | Canonical URLs, filtering of local addresses and credential-bearing links |
+| `extension/` | JavaScript MV3 service worker, browser history API, and connection popup |
 
-Keep `main.rs` small. Command parsing and behavior should remain reachable from library code so tests can exercise the application without reproducing process setup.
+The LaunchAgent works without Dia running. It stores incoming iCloud URLs in SQLite; the extension consumes these URLs on startup and every five minutes while the browser is open. It calls `chrome.history.getVisits()` before `chrome.history.addUrl()` so a crash or retry does not duplicate a visit.
 
-## Add a command
+The reverse direction also sends history records, not page loads. When necessary, Rindle launches Safari hidden and visits only `https://www.apple.com/?rindle-sync=1` to trigger iCloud's normal upload cycle. None of the pages found in Chromium history are opened.
 
-Rindle has no application-specific commands yet. Add a `clap` variant in `src/cli.rs`, create a focused module under `src/commands/`, then dispatch it from `src/lib.rs`. Keep the existing update commands intact.
+## Privacy and resilience
 
-Prefer command-specific help text to a large custom help renderer. `clap` derives version information from the Cargo package, so no separate version file is required.
+- Safari `origin=1` distinguishes remote iCloud visits, not a specific iPhone.
+- Rindle preserves meaningful URL paths and queries but discards fragments, private hosts, and recognized credentials in query parameters.
+- Native Messaging is explicitly allowlisted to Rindle's stable extension ID; extension does not inject content scripts or call third-party APIs.
+- A durable ledger prevents bouncing URLs between browsers even if iCloud reflects an entry.
+- Safari's private history schema is undocumented. Rindle validates known columns, makes SQLite-consistent backups, and fails closed when macOS changes the schema.
+- Only up to three backups are retained, stored locally. Uninstall never deletes actual browser history.
 
-## Validate while editing
+## Tests
 
-```bash
-just check-fast
-cargo test --locked <test-name>
-```
-
-Before pushing:
-
-```bash
+```sh
 just check
+just docs-check
+dist plan
 ```
 
-Project lints forbid unsafe code and deny `dbg!`, `todo!`, and `unimplemented!`.
+Rust tests use isolated SQLite databases, Native Messaging framing tests, and CLI process tests. Real-browser testing is still required for compatibility and final iPhone autocomplete behavior.

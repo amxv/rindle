@@ -14,6 +14,7 @@ on:
       - "Justfile"
       - "src/**"
       - "tests/**"
+      - "extension/**"
   pull_request:
     branches: [main]
     paths:
@@ -27,6 +28,7 @@ on:
       - "Justfile"
       - "src/**"
       - "tests/**"
+      - "extension/**"
   workflow_dispatch:
 
 permissions:
@@ -38,7 +40,7 @@ concurrency:
 
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -60,3 +62,10 @@ jobs:
 
       - name: Test
         run: cargo test --locked
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Extension tests
+        run: node --test extension/*.test.mjs

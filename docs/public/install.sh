@@ -1,6 +1,10 @@
 #!/bin/sh
 # Website-hosted installer. cargo-dist publishes and verifies release archives.
 set -eu
+if [ "$(uname -s)" != "Darwin" ]; then
+  echo 'Rindle requires macOS (Safari and iCloud history sync).' >&2
+  exit 1
+fi
 cli='rindle'
 repo='https://github.com/amxv/rindle'
 mode=${1:-install}
