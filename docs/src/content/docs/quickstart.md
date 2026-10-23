@@ -8,6 +8,8 @@ summary: Register the native helper, load Dia's extension, and enable background
 
 Rindle lets you keep using **Safari on your iPhone** and **Dia on your Mac**, while syncing their visited URLs for autocomplete. It transfers history records, not webpage visits.
 
+**Caution:** The macOS Safari history write path is an experimental, unsupported interface. A local iCloud sync checkpoint does not prove the iPhone has received an imported URL. In testing, Safari sometimes logged upload errors even when that checkpoint advanced. The initial release is held until this limitation is resolved or a supported alternative is validated.
+
 **The first Rindle release has not been published yet.** Use the [source instructions](#test-from-source) until then.
 
 ## 1. Install Rindle

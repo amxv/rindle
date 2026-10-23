@@ -6,6 +6,8 @@
 
 Rindle is currently **macOS-only and unreleased**. The repository is ready for local testing before its first GitHub Release.
 
+**Safari ↔ iPhone syncing is experimental.** Although Rindle can insert records in Mac Safari history and trigger hidden sync attempts, Safari's private database may advance its local sync checkpoint even when iCloud reports an upload error. We observed this on macOS 26.3.1. Do not treat a completed local checkpoint as proof the URLs appeared in iPhone Safari. The supported alternative is importing a `History.json` through Safari's File menu. Unattended delivery to iPhone Safari has not been reliably verified.
+
 ## How it works
 
 - **Safari → Dia:** iCloud syncs iPhone visits to Mac Safari. Rindle queues remote-origin URLs locally. When Dia opens, its Manifest V3 extension checks for existing visits, then imports missing URLs through `chrome.history.addUrl()` without opening the websites. It catches up on startup and periodically while running.

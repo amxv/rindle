@@ -217,6 +217,18 @@ fn dry_run_reads_an_isolated_safari_history_without_modifying_it() -> Result<()>
         String::from_utf8_lossy(&setup.stderr)
     );
 
+    let status = Command::new(exe)
+        .arg("status")
+        .env("HOME", &home)
+        .env("RINDLE_HOME", &data)
+        .env("RINDLE_SAFARI_HISTORY_DB", &history_path)
+        .output()?;
+    ensure!(status.status.success());
+    ensure!(
+        String::from_utf8(status.stdout)?.contains("iCloud delivery is NOT verified"),
+        "Local checkpoint must never be mistaken for phone delivery"
+    );
+
     let before = fs::read(&history_path)?;
     let output = Command::new(exe)
         .args(["sync", "--dry-run"])

@@ -215,10 +215,12 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         let _session = HiddenSafari::start(pending.is_some())?;
         if let Some(generation) = pending {
             if wait_for_checkpoint(generation)? {
-                println!("iCloud history sync checkpoint reached generation {generation}.");
+                println!(
+                    "Safari's LOCAL sync checkpoint reached generation {generation}; this does NOT confirm delivery to your iPhone."
+                );
             } else {
                 println!(
-                    "iCloud hasn't acknowledged generation {generation} yet. Rindle will retry on its next scheduled run."
+                    "Safari's LOCAL sync checkpoint has not reached generation {generation}. Rindle will retry a hidden heartbeat on its next scheduled run."
                 );
             }
         } else {
@@ -230,6 +232,9 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         queued += store.enqueue_remote(&refreshed.into_iter().take(limit).collect::<Vec<_>>())?;
     }
     println!("Safari → browsers: {queued} newly queued after iCloud refresh.");
+    println!(
+        "Note: Safari history database changes use an unsupported macOS interface; an iCloud checkpoint alone cannot prove that an iPhone received those URLs."
+    );
     Ok(())
 }
 

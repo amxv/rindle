@@ -349,7 +349,9 @@ pub fn status() -> Result<()> {
     match crate::macos::safari::Safari::open() {
         Ok(safari) => {
             let (_, checkpoint) = safari.generations()?;
-            println!("Safari history: accessible (last iCloud sync generation {checkpoint})");
+            println!(
+                "Safari history: accessible (local sync checkpoint {checkpoint}; iCloud delivery is NOT verified)"
+            );
         }
         Err(error) => println!("Safari history: unavailable ({error:#})"),
     }

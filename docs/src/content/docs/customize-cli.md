@@ -29,6 +29,7 @@ The reverse direction also sends history records, not page loads. When necessary
 - Native Messaging is explicitly allowlisted to Rindle's stable extension ID; extension does not inject content scripts or call third-party APIs.
 - A durable ledger prevents bouncing URLs between browsers even if iCloud reflects an entry.
 - Safari's private history schema is undocumented. Rindle validates known columns, makes SQLite-consistent backups, and fails closed when macOS changes the schema.
+- A `last_synced_generation` checkpoint is a **local progress marker**, not an acknowledgment from iPhone Safari. Rindle must not claim successful device delivery from it. macOS Safari has logged failed Cloud History saves while the marker advanced. Apple provides a user-facing supported history import workflow at **Safari → File → Import Browsing Data from File or Folder**, but it has no supported headless scripting API.
 - Only up to three backups are retained, stored locally. Uninstall never deletes actual browser history.
 
 ## Tests
