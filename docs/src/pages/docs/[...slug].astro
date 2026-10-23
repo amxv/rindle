@@ -1,6 +1,6 @@
 ---
 import { getCollection, render } from "astro:content";
-import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
+import RindleLayout from "../../layouts/RindleLayout.astro";
 import DocsPageLayout from "zuedocs/layouts/DocsPageLayout.astro";
 import { docCategories, primaryNav, siteConfig } from "../../data/docs";
 
@@ -25,7 +25,7 @@ const grouped = docCategories
   .filter((group) => group.entries.length > 0);
 ---
 
-<BaseLayout
+<RindleLayout
   title={`${entry.data.title} | ${siteConfig.name} Docs`}
   description={entry.data.description}
   siteConfig={siteConfig}
@@ -74,7 +74,7 @@ const grouped = docCategories
       </ul>
     </aside>
   </section>
-</BaseLayout>
+</RindleLayout>
 
 <script>
   import "zuedocs/docsEnhancements";

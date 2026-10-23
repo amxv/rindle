@@ -1,10 +1,10 @@
 const generatedIdentity = {
   name: "Rindle",
-  strapline: "One history across your browsers",
-  description: "Privately sync visited URLs between Safari on your iPhone and Dia, Chrome, or Edge on your Mac. No URL replay, no third-party server.",
+  strapline: "One history, wherever you go",
+  description: "Safari on your iPhone. Dia on your Mac. One browsing history, quietly kept in sync. Private, local, and open source.",
   repoUrl: "https://github.com/amxv/rindle",
-  footerText: "Your history belongs to you. Private sync, powered by your Mac.",
-  distributionText: "Native macOS builds for Apple Silicon and Intel; direct GitHub Releases."
+  footerText: "Your history, wherever you are. No extra cloud, no extra account.",
+  distributionText: "Open source for macOS. Apple Silicon and Intel."
 } as const;
 
 export const siteConfig = {
@@ -12,8 +12,10 @@ export const siteConfig = {
   strapline: generatedIdentity.strapline,
   description: generatedIdentity.description,
   repoUrl: generatedIdentity.repoUrl,
-  accentColor: "#b7410e",
-  accentColorDark: "#f28c52",
+  accentColor: "#2d7355",
+  accentColorDark: "#b9d8b0",
+  logoHref: "/favicon.svg",
+  faviconHref: "/favicon.svg",
   footerSections: [
     {
       title: generatedIdentity.name,
@@ -32,9 +34,10 @@ export const siteConfig = {
   ]
 } as const;
 
-export const docCategories = ["Start", "Development", "Distribution", "Reference"] as const;
+export const docCategories = ["Start here", "Everyday use", "Reference"] as const;
 
 export const primaryNav = [
+  { href: "/docs/quickstart", label: "Get started" },
   { href: "/docs", label: "Docs" },
   { href: siteConfig.repoUrl, label: "GitHub", external: true }
 ];

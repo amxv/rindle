@@ -2,8 +2,8 @@
 title: Changelog
 description: Rindle development and releases.
 order: 99
-category: Distribution
-summary: Unreleased two-way Safari / Chromium history sync.
+category: Reference
+summary: Changes in the first release and future updates.
 ---
 
 ## 0.1.0 — October 24, 2026

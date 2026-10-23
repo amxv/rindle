@@ -1,48 +1,55 @@
 ---
-title: Command reference
-description: All user and developer commands for Rindle.
-order: 4
+title: CLI reference
+description: Every Rindle command and option, in one place.
+order: 10
 category: Reference
-summary: Setup, history sync, diagnostics, and CLI updates.
+summary: Setup flags, status, manual syncing, uninstall, and software upgrades.
 ---
 
-## Browser and history sync
+The standard installer places the command at `~/.local/bin/rindle`. If that directory is on your PATH, you can use `rindle` directly.
 
-| Command | Effect |
+## Setup
+
+| Command | Purpose |
 | --- | --- |
-| `rindle setup --browser dia` | Configure Dia and enable background sync every three hours |
-| `rindle setup --browser chrome` | Also register Google Chrome |
-| `rindle setup --browser edge` | Also register Microsoft Edge |
-| `rindle setup --all` | Register all three browsers |
-| `rindle setup --browser dia --no-schedule` | Register without recurring background runs |
-| `rindle sync --dry-run` | Report potential work without changing history |
-| `rindle sync` | Stage iCloud URLs, write new Safari records, trigger hidden upload |
-| `rindle status` | Show registrations, last extension contact, and queue counts |
-| `rindle uninstall` | Remove helpers and schedule; retain history and deduplication data |
+| `rindle setup --browser dia` | Connect Dia and enable the three-hour background job |
+| `rindle setup --browser chrome` | Connect Google Chrome |
+| `rindle setup --browser edge` | Connect Microsoft Edge |
+| `rindle setup --all` | Connect all three supported browsers |
+| `rindle setup --browser dia --no-schedule` | Register the browser without background history syncing |
+| `rindle setup --scoped-helper /absolute/path/to/RindleScopedProbe` | Use a particular authorized sandboxed Safari helper |
+| `rindle setup --allow-full-disk-access` | Legacy direct database access; not recommended |
 
-Browser extension updates are embedded in the Rust binary and extracted by setup or the background sync. No Node runtime is needed after installation.
+The included Safari helper is the default. Running `setup` again repairs Native Messaging host registration without deleting history.
 
-## Upgrades
+## Sync and status
 
-```sh
-rindle upgrade --check
-rindle upgrade
-rindle auto-update on
-rindle auto-update status
-rindle auto-update off
-```
+| Command | Purpose |
+| --- | --- |
+| `rindle status` | Show Safari access, connected browsers, and queue progress |
+| `rindle sync --dry-run` | Preview potential work without changing history or opening Safari |
+| `rindle sync` | Sync history between Mac Safari and connected browsers |
+| `rindle sync --limit 3` | Limit a manual sync to at most three URLs per direction |
+| `rindle uninstall` | Remove background sync and Native Messaging registrations; keep browsing history |
 
-Automatic **CLI upgrades** are separate from browser-history sync. They remain off until explicitly enabled and require a published GitHub Release.
+The manual sync limit is **1–1,000** URLs per direction. The unattended job is deliberately capped at **100 URLs per direction every three hours**.
 
-## Development
+## Software updates
 
-```sh
-just check-fast
-just check
-just extension-test
-just build
-just docs-check
-just release-plan
-```
+| Command | Purpose |
+| --- | --- |
+| `rindle upgrade --check` | Show whether a new stable release exists |
+| `rindle upgrade` | Install the latest release |
+| `rindle auto-update on` | Opt into daily automatic CLI update checks |
+| `rindle auto-update status` | Show your saved update preference |
+| `rindle auto-update off` | Disable automatic CLI updates |
 
-Do not create a release tag until Dia's Native Messaging host and Safari iCloud autocomplete have passed end-to-end testing.
+Automatic software updates are **off until you enable them**. They are separate from the three-hour history sync schedule.
+
+## Browser extension
+
+The extension is installed at `~/Library/Application Support/Rindle/extension` and includes a popup with **Sync now**. It is bundled with the Rust executable—there's no separate Node runtime needed after installation.
+
+## More information
+
+For issues with permissions or connection status, see [Troubleshooting](/docs/troubleshooting). For the technical protocols, see [Security and architecture](/docs/customize-cli).

@@ -1,93 +1,138 @@
 ---
-import { getCollection } from "astro:content";
-import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
+import RindleLayout from "../layouts/RindleLayout.astro";
 import { primaryNav, siteConfig } from "../data/docs";
 
-const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
+const installCommand = "curl -fsSL https://rindle.ashray.xyz/install.sh | sh";
 
-const proofPoints = [
-  {
-    title: "Your iPhone, your Mac",
-    body: "Use Safari on your phone and Dia on your desktop. Rindle quietly connects their URL suggestions through iCloud."
-  },
-  {
-    title: "History, not page loads",
-    body: "Rindle adds history records directly. It never reopens the websites you visited to manufacture suggestions."
-  },
-  {
-    title: "No browser babysitting",
-    body: "A tiny background job syncs every few hours. Dia catches up the next time you open it, with no extra clicks."
-  },
-  {
-    title: "Only on your devices",
-    body: "A local Rust helper and Chromium extension work with Apple's existing iCloud sync. No Rindle cloud or accounts."
-  }
+const benefits = [
+  { index: "01", icon: "↝", title: "One trail of places", body: "Find a link on your phone. Find it again from your Mac's address bar. And the other way around." },
+  { index: "02", icon: "◷", title: "Nothing new to remember", body: "Browse as you always do. Rindle runs quietly on your Mac and catches up in the background." },
+  { index: "03", icon: "⌁", title: "Your history stays yours", body: "No Rindle account or cloud. Your Mac handles the handoff using the iCloud sync you already have." },
+];
+const steps = [
+  { index: "01", title: "Install on your Mac", description: "One command installs Rindle and its small Safari helper. Apple Silicon and Intel both welcome." },
+  { index: "02", title: "Connect Dia", description: "Add the included extension to Dia. Let Rindle access only your Safari history folder." },
+  { index: "03", title: "Keep browsing", description: "That's it. Your favorite browsers stay yours. Your history is there when you need it." },
 ];
 ---
 
-<BaseLayout
-  title={`${siteConfig.name} | ${siteConfig.strapline}`}
-  description={siteConfig.description}
+<RindleLayout
+  title="Rindle — Your browsing history, wherever you are"
+  description="Safari on your iPhone. Dia on your Mac. Rindle makes the sites you've visited available in both address bars—quietly, privately, and without changing how you browse."
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
-  <section class="hero shell">
-    <div class="hero__copy">
-      <p class="section-label">Private browser history sync for macOS</p>
-      <h1>Rindle.</h1>
-      <p class="hero__lede">
-        Safari on your iPhone. Dia on your Mac. One history everywhere.
-        Rindle quietly brings visited links to both address bars, without reopening your pages.
-      </p>
-      <div class="hero__actions">
-        <a class="button button--solid" href="/docs/quickstart">Quickstart</a>
-        <a class="button button--ghost" href="/docs">Browse docs</a>
+  <div class="rindle-landing">
+    <section class="landing-hero shell" aria-labelledby="landing-title">
+      <div class="landing-hero__meta"><span class="tiny-dash" aria-hidden="true"></span> THE MISSING LINK BETWEEN YOUR BROWSERS</div>
+      <div class="landing-hero__heading">
+        <h1 id="landing-title">Your history<br /><em>goes with you.</em></h1>
+        <div class="landing-hero__side">
+          <p>Safari on your iPhone. Dia on your Mac. The sites you've visited, right where you need them.</p>
+          <div class="landing-hero__actions">
+            <a href="#install" class="rindle-button rindle-button--primary">Get Rindle <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 10h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></a>
+            <a href="/docs/quickstart" class="rindle-link">How it works <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
       </div>
-    </div>
-    <aside class="hero__panel">
-      <p class="hero__panel-label">Getting started</p>
-      <div class="hero__terminal">
-        <span>$ rindle setup --browser dia</span>
-        <span>$ rindle status</span>
-        <span>$ rindle sync --dry-run</span>
-        <span>$ rindle sync</span>
+      <div class="landing-hero__bottom"><span>ONE SMALL APP. ONE CONTINUOUS BROWSING HISTORY.</span><span>macOS 14+ <b>/</b> OPEN SOURCE <b>/</b> v0.1.0</span></div>
+    </section>
+
+    <section class="flow-showcase shell" aria-label="Illustration of visited history appearing from Safari on iPhone in Dia on Mac">
+      <div class="flow-showcase__topline">
+        <span><i class="live-dot" aria-hidden="true"></i> ONE HISTORY, TWO BROWSERS</span>
+        <span class="flow-showcase__tag">PICK UP WHERE YOU LEFT OFF <span aria-hidden="true">↘</span></span>
       </div>
-      <p class="hero__panel-label">Currently in local testing. First release coming after acceptance.</p>
-    </aside>
-  </section>
+      <div class="flow-showcase__canvas">
+        <div class="flow-showcase__texture" aria-hidden="true"></div>
+        <svg class="flow-showcase__path" viewBox="0 0 960 430" preserveAspectRatio="none" fill="none" aria-hidden="true">
+          <path d="M110 305C270 307 298 132 480 180S700 291 873 133" stroke="rgba(213,237,207,.12)" stroke-width="38" stroke-linecap="round" />
+          <path d="M110 305C270 307 298 132 480 180S700 291 873 133" stroke="#D0E7B9" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 10" class="flow-showcase__moving-path" />
+        </svg>
+        <div class="device-phone">
+          <div class="device-phone__edge">
+            <div class="device-phone__island" aria-hidden="true"></div>
+            <div class="device-phone__screen">
+              <div class="device-phone__top"><span>9:41</span><span aria-hidden="true">●●● ▰</span></div>
+              <div class="phone-art">
+                <div class="phone-art__sun"></div><div class="phone-art__hill phone-art__hill--back"></div><div class="phone-art__hill phone-art__hill--front"></div>
+                <div class="phone-art__copy">A little<br />further<br /><i>afield.</i></div>
+              </div>
+              <div class="device-phone__browser">
+                <div class="device-phone__url">example.com/journal</div>
+                <div class="device-phone__browser-controls"><span>‹</span><span>›</span><span>□</span><span>＋</span><span>▤</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="device-label"><span class="device-label__mark">◌</span><span><strong>Safari</strong> on your iPhone</span></div>
+        </div>
+        <div class="handoff-label" aria-hidden="true"><span>✳</span><small>Rindle keeps<br />things moving</small></div>
+        <div class="device-desktop">
+          <div class="device-desktop__window">
+            <div class="device-desktop__toolbar"><span class="window-dots"><i></i><i></i><i></i></span><span class="device-desktop__tabs">◈ &nbsp; Dia</span><span class="device-desktop__tabplus">＋</span></div>
+            <div class="device-desktop__bar"><span class="search-spark" aria-hidden="true">⌕</span><span>example.com/journal</span><span aria-hidden="true">↵</span></div>
+            <div class="device-desktop__result"><div class="result-favicon" aria-hidden="true">e</div><div><strong>example.com/journal</strong><span>From your browsing history</span></div><span class="result-arrow" aria-hidden="true">↗</span></div>
+            <div class="device-desktop__placeholder" aria-hidden="true"><span></span><span></span><span></span></div>
+          </div>
+          <div class="device-label device-label--desktop"><span class="device-label__mark">◈</span><span><strong>Dia</strong> on your Mac</span></div>
+        </div>
+        <div class="flow-showcase__bottom"><span>VISIT ON ONE DEVICE</span><span></span><span>FIND IT ON THE OTHER</span></div>
+      </div>
+      <p class="flow-showcase__caption">An illustration of the handoff. No tabs copied, no pages reopened—just the links in your history.</p>
+    </section>
 
-  <section class="shell section-grid">
-    <div class="section-heading">
-      <p class="section-label">Designed to disappear</p>
-      <h2>All your links. No extra work.</h2>
-      <p>
-        Keep browsing exactly the way you already do. Rindle uses a lightweight Rust CLI,
-        a Chromium extension, and the iCloud sync you already have.
-      </p>
-    </div>
-    <div class="proof-grid">
-      {proofPoints.map((item) => (
-        <article class="proof-card">
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-        </article>
-      ))}
-    </div>
-  </section>
+    <section class="benefits shell" id="why-rindle" aria-labelledby="benefits-title">
+      <div class="section-intro"><p class="eyebrow">01 / THE IDEA</p><h2 id="benefits-title">Browse freely.<br /><em>Remember everywhere.</em></h2><p>Good discoveries shouldn't disappear when you switch devices. Rindle closes that little gap in your day.</p></div>
+      <div class="benefits__grid">
+        {benefits.map((item) => (
+          <article class="benefit"><div class="benefit__top"><span>{item.index}</span><i aria-hidden="true">{item.icon}</i></div><h3>{item.title}</h3><p>{item.body}</p></article>
+        ))}
+      </div>
+    </section>
 
-  <section class="shell docs-teaser">
-    <div class="section-heading">
-      <p class="section-label">Documentation</p>
-      <h2>Setup, development, and release documentation.</h2>
-    </div>
-    <div class="docs-teaser__grid">
-      {docs.map((entry) => (
-        <a class="docs-teaser__card" href={`/docs/${entry.id}`}>
-          <span>{entry.data.category}</span>
-          <h3>{entry.data.title}</h3>
-          <p>{entry.data.summary ?? entry.data.description}</p>
-        </a>
-      ))}
-    </div>
-  </section>
-</BaseLayout>
+    <section class="setup-section" id="how-it-works" aria-labelledby="setup-title">
+      <div class="shell setup-section__inner">
+        <div class="section-intro section-intro--compact"><p class="eyebrow">02 / THE SETUP</p><h2 id="setup-title">Set it up.<br /><em>Forget it's there.</em></h2><p>A few minutes once. Then just browse.</p></div>
+        <div class="setup-list">{steps.map((step) => (
+          <div class="setup-step"><span class="setup-step__number">{step.index}</span><div><h3>{step.title}</h3><p>{step.description}</p></div><span class="setup-step__accent" aria-hidden="true">↗</span></div>
+        ))}</div>
+      </div>
+    </section>
+
+    <section class="privacy-section shell" aria-labelledby="privacy-title">
+      <div class="privacy-panel">
+        <div class="privacy-panel__copy"><p class="eyebrow">03 / YOUR HISTORY, YOURS</p><h2 id="privacy-title">A bridge, not<br /><em>another cloud.</em></h2><p>Rindle runs on your Mac and works with Safari's existing iCloud sync. There's no Rindle account, no Rindle server, and no need to give an app Full Disk Access.</p><a href="/docs/privacy" class="rindle-link rindle-link--light">How we handle your history <span aria-hidden="true">↗</span></a></div>
+        <div class="privacy-panel__graphic" aria-hidden="true">
+          <div class="privacy-orbit privacy-orbit--outer"></div><div class="privacy-orbit privacy-orbit--inner"></div>
+          <div class="privacy-core"><svg viewBox="0 0 64 64" fill="none"><path d="M8 42c15-20 29-20 48-20M8 24c15 20 29 20 48 20" stroke="currentColor" stroke-width="3" stroke-linecap="round" /><circle cx="8" cy="42" r="4" fill="currentColor" /><circle cx="56" cy="22" r="4" fill="currentColor" /></svg></div>
+          <span class="privacy-graphic__note privacy-graphic__note--one">Your Mac</span><span class="privacy-graphic__note privacy-graphic__note--two">Your iCloud</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="install-section shell" id="install" aria-labelledby="install-title">
+      <p class="eyebrow">READY WHEN YOU ARE</p>
+      <div class="install-section__heading"><h2 id="install-title">Keep the good<br /><em>things flowing.</em></h2><p>Free, open source, and built for macOS. One command gets Rindle onto your Mac.</p></div>
+      <div class="install-command">
+        <div class="install-command__left"><span class="install-command__prompt" aria-hidden="true">$</span><code>{installCommand}</code></div>
+        <button class="install-command__copy" data-copy-install type="button" aria-label="Copy Rindle installation command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span data-copy-label>Copy command</span></button>
+      </div>
+      <div class="install-section__below"><span>macOS 14 or later · Apple Silicon & Intel</span><div><a href="/docs/quickstart">Read the setup guide <span aria-hidden="true">↗</span></a><a href="https://github.com/amxv/rindle" target="_blank" rel="noreferrer">Explore the source <span aria-hidden="true">↗</span></a></div></div>
+      <p class="install-section__note">The installer asks you to select your Safari history folder. It never asks for Full Disk Access.</p>
+    </section>
+  </div>
+</RindleLayout>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>("[data-copy-install]");
+  button?.addEventListener("click", async () => {
+    const label = button.querySelector<HTMLElement>("[data-copy-label]");
+    try {
+      await navigator.clipboard.writeText("curl -fsSL https://rindle.ashray.xyz/install.sh | sh");
+      if (label) label.textContent = "Copied!";
+      button.classList.add("is-copied");
+    } catch {
+      if (label) label.textContent = "Select command above";
+    }
+  });
+</script>

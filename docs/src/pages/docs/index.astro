@@ -1,28 +1,32 @@
 ---
 import { getCollection } from "astro:content";
-import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
+import RindleLayout from "../../layouts/RindleLayout.astro";
 import { docCategories, primaryNav, siteConfig } from "../../data/docs";
 
 const entries = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
 const grouped = docCategories.map((category) => ({
   category,
   entries: entries.filter((entry) => entry.data.category === category)
-}));
+})).filter((group) => group.entries.length > 0);
 ---
 
-<BaseLayout
+<RindleLayout
   title={`${siteConfig.name} Docs`}
   description={siteConfig.description}
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
   <section class="shell docs-index-hero">
-    <p class="section-label">Documentation</p>
-    <h1>Build, test, and eventually release Rindle.</h1>
+    <p class="section-label">The Rindle guidebook</p>
+    <h1>A little setup.<br /><em>Your links everywhere.</em></h1>
     <p>
-      Rindle is a scaffold today. These guides cover local development, the small command
-      surface, documentation maintenance, and the direct-release setup for its first release.
+      Everything you need to bring Safari on your iPhone and Dia on your Mac together.
+      Start with installation, get comfortable using it, then explore the details if you're curious.
     </p>
+  </section>
+  <section class="shell docs-starter" aria-label="Start here">
+    <div><span class="docs-starter__eyebrow">New to Rindle?</span><strong>Up and running in a few minutes.</strong></div>
+    <a href="/docs/quickstart">Follow the setup guide →</a>
   </section>
   <section class="shell docs-index">
     {grouped.map((group) => (
@@ -34,7 +38,7 @@ const grouped = docCategories.map((category) => ({
           {group.entries.map((entry) => (
             <a class="docs-index__card" href={`/docs/${entry.id}`}>
               <h2>{entry.data.title}</h2>
-              <p>{entry.data.description}</p>
+              <p>{entry.data.summary ?? entry.data.description}</p>
               <span>Open guide</span>
             </a>
           ))}
@@ -42,4 +46,4 @@ const grouped = docCategories.map((category) => ({
       </section>
     ))}
   </section>
-</BaseLayout>
+</RindleLayout>

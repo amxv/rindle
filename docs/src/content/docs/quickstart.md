@@ -1,77 +1,73 @@
 ---
-title: Quickstart
-description: Sync Safari iCloud history with Dia on your Mac.
+title: Get started
+description: Set up Safari and Dia history sync on your Mac in a few minutes.
 order: 1
-category: Start
-summary: Register the native helper, load Dia's extension, and enable background sync.
+category: Start here
+summary: Install Rindle, give it access to your Safari history, and connect Dia.
 ---
 
-Rindle lets you keep using **Safari on your iPhone** and **Dia on your Mac**, while syncing their visited URLs for autocomplete. It transfers history records, not webpage visits.
+Rindle keeps the sites you visit in **Safari on your iPhone** available in **Dia on your Mac**—and vice versa. You can keep using both browsers exactly as you do today.
 
-**Compatibility:** The generation-aligned Safari history sync was verified end to end with iPhone Safari and Dia on macOS 26.3.1. It still uses Safari's private, undocumented history format. Rindle fails closed on schema changes and backs up each write batch, but future macOS changes may require maintenance.
+You only need to set it up once.
 
-**The first Rindle release has not been published yet.** Use the [source instructions](#test-from-source) until then.
+## Before you begin
+
+You'll need a Mac running **macOS 14 or later** (Apple Silicon or Intel), an iPhone, and [Dia](https://www.diabrowser.com/) installed on your Mac.
+
+Make sure **Safari is enabled in iCloud** on *both* devices. On your iPhone, open Settings → your Apple Account → iCloud and check Safari. Do the same in System Settings on your Mac. The exact menu wording can vary by macOS and iOS version.
 
 ## 1. Install Rindle
 
-After the first release:
+Open Terminal on your Mac and paste:
 
 ```sh
 curl -fsSL https://rindle.ashray.xyz/install.sh | sh
 ```
 
-The installer downloads a checksummed macOS tarball containing the Rust CLI and ad-hoc-signed, sandboxed Safari helper. It installs the native host and a macOS LaunchAgent that synchronizes every three hours, and extracts the browser extension to `~/Library/Application Support/Rindle/extension`.
+The installer downloads a checksummed macOS release, installs a small command-line app and a Safari helper, and configures background sync. No Rust or build tools are required.
 
-### One-time Safari folder permission on macOS
+Prefer to inspect the script first? It's [open source on GitHub](https://github.com/amxv/rindle/blob/main/docs/public/install.sh).
 
-The installer opens Apple's normal folder picker. Select **`~/Library/Safari`**. Only the sandboxed Safari helper receives persistent access to this folder, using a security-scoped bookmark. Rindle does **not** require Full Disk Access for its standard automatic sync.
+## 2. Choose your Safari history folder
 
-To verify:
+During installation, macOS will show a normal folder picker. Select:
 
-```sh
-rindle status
+```text
+~/Library/Safari
 ```
 
-The Safari status should identify the **sandboxed, folder-scoped helper**. No Developer ID or Full Disk Access is needed. Installation uses a verified command-line tarball; downloading the `.app` directly through Safari or Finder may trigger Gatekeeper. See [Privacy and permissions](/docs/privacy).
+You can press **Command + Shift + G** in the picker and paste the path. This grants the small, sandboxed helper access to *that folder only*.
 
-## 2. Load the extension in Dia
+**Do not enable Full Disk Access.** Rindle doesn't need it for normal installation. Learn more in [Privacy and permissions](/docs/privacy).
 
-1. Open `dia://extensions` or Dia's Extensions settings.
-2. Enable **Developer mode**.
-3. Choose **Load unpacked** and select the extension directory shown by setup.
-4. Open the Rindle popup and click **Sync now**.
+## 3. Add the extension to Dia
 
-The extension needs History, Storage, Alarms and Native Messaging permissions. It does not inject scripts into websites.
+Rindle installs the extension files, but Dia needs you to load them once:
 
-## 3. Enable iCloud Safari on both devices
+1. Open **`dia://extensions`** in Dia.
+2. Turn on **Developer mode**.
+3. Click **Load unpacked**.
+4. Select **`~/Library/Application Support/Rindle/extension`**. You can paste that path in the file picker with Command + Shift + G.
+5. Open the Rindle extension popup and choose **Sync now**.
 
-Enable Safari in iCloud Settings on your Mac and iPhone. Mac Safari is only Rindle's bridge, not your day-to-day browser.
+That's the entire browser setup. You won't have to repeat it on every launch.
 
-```sh
-rindle status
-rindle sync --dry-run
-rindle sync
-```
+## 4. Check that everything is connected
 
-The dry run does not modify history. A normal sync opens a **unique Apple.com heartbeat URL** while Safari is hidden if an iCloud upload is pending. If Safari records it one history generation behind the imported URLs, Rindle waits and opens a second harmless Apple.com heartbeat to avoid silently skipping the imported batch. Safari remains hidden through its idle-sync period. Dia can remain closed until you next use it; its extension catches up then.
-
-## Test from source
-
-With macOS, Rust and Node.js installed:
+Back in Terminal, run:
 
 ```sh
-git clone https://github.com/amxv/rindle.git
-cd rindle
-cargo build
-cargo test
-node --test extension/utils.test.mjs
-./target/debug/rindle setup --browser dia --no-schedule
-./target/debug/rindle status
-./target/debug/rindle sync --dry-run
+~/.local/bin/rindle status
 ```
 
-This test setup does **not** enable a recurring job. To enable unattended sync from source, build and sign `apps/scoped-safari`, select `~/Library/Safari` in its folder picker, and then use `rindle setup --browser dia --scoped-helper /absolute/path/to/RindleScopedProbe`. Rindle refuses to enable the legacy Full Disk Access backend without the explicit `--allow-full-disk-access` option.
+Look for **“dia: connected”**, an accessible Safari history, and the **sandboxed, folder-scoped helper**. If you've added `~/.local/bin` to your shell's PATH, you can simply run `rindle status`.
 
-If Rindle displays **“Specified native messaging host not found”**, rerun `rindle setup --browser dia --no-schedule` to repair Dia's Chrome-compatible native-host registration, then reload the extension if needed. This does not launch Safari or change browser history. The shared registration also works when Chrome is configured separately.
+For a simple test, visit a unique webpage in Safari on your iPhone, then search for it in Dia's address bar once iCloud and Rindle have had time to catch up. You can also visit a page in Dia and check its address in iPhone Safari later.
 
-Before enabling unattended syncing, try `rindle sync --limit 3` to transfer a small batch in each direction and verify suggestions on your iPhone. The three-hour background schedule is intentionally bounded to **100 URLs per direction per run**, newest first. Manual `rindle sync --limit N` permits up to 1,000 URLs.
+Rindle transfers history entries—not open tabs. A first sync can take longer as older history is brought across in small batches.
+
+## You're all set
+
+Keep browsing. Your Mac's background sync runs **every three hours**, and the Dia extension checks for new history on startup and periodically while Dia is open. Apple's iCloud sync may introduce additional delay, so changes aren't always instant.
+
+Next, read [Living with Rindle](/docs/everyday-use) for what to expect, or [Troubleshooting](/docs/troubleshooting) if a suggestion doesn't appear.

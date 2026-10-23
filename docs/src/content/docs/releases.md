@@ -1,53 +1,54 @@
 ---
-title: Releases and installers
-description: Native macOS distribution using ad-hoc signed apps and GitHub Release tarballs.
-order: 3
-category: Distribution
-summary: Mac installers, checksums, built-in upgrades, and release validation.
+title: Downloads and updates
+description: macOS releases, installing Rindle, and keeping it up to date.
+order: 12
+category: Reference
+summary: Release downloads, the one-command installer, and safe software updates.
 ---
 
-Rindle supports **macOS only**. GitHub Actions builds architecture-specific tarballs for Apple Silicon (`aarch64-apple-darwin`) and Intel (`x86_64-apple-darwin`) Macs. **Each archive contains the Rust CLI and an ad-hoc-signed sandboxed Safari `.app`.** A SHA-256 sidecar accompanies every archive. The unpacked Chromium extension is embedded in the Rust executable.
+Rindle is available for **macOS 14 or later**, on Apple Silicon and Intel Macs.
 
-## Install after the first release
+## Install
 
 ```sh
 curl -fsSL https://rindle.ashray.xyz/install.sh | sh
 ```
 
-The website installer uses HTTPS `curl`, verifies the archive's SHA-256 checksum, extracts it with `tar`, checks the ad-hoc code signature for integrity, asks users to select only `~/Library/Safari` once, and registers the three-hour background sync automatically. It does not request Full Disk Access or disable Gatekeeper. Command-line extraction does not normally attach browser-download quarantine metadata; manually downloaded app bundles may be subject to Gatekeeper.
+The installer selects the correct architecture, checks the archive's SHA-256 checksum, verifies the sandboxed Safari helper's ad-hoc code signature, and installs everything into user-writable directories. It then asks you to select `~/Library/Safari` and registers the browser integration and background schedule.
 
-**Before the first release:** Build and smoke-test both architectures through the manual GitHub Actions release workflow, then tag the tested commit. No Apple Developer account is needed.
+It does **not** ask for Full Disk Access, disable Gatekeeper, or strip quarantine attributes. If you download the `.app` manually in a web browser, macOS may treat it differently from a command-line installation.
+
+You can also [browse the release assets on GitHub](https://github.com/amxv/rindle/releases/latest).
+
+## What's in a release?
+
+Each GitHub Release contains two checksummed `.tar.gz` archives—one for Apple Silicon and one for Intel. Each archive contains the native Rust CLI and a matching sandboxed Swift Safari helper. A copy of the installer script is included.
+
+There is no installer that requires administrator privileges, a separate JavaScript runtime, or an Apple Developer Program membership.
 
 ## Upgrade
 
 ```sh
-rindle upgrade --check
-rindle upgrade
-rindle auto-update on
-rindle auto-update off
+~/.local/bin/rindle upgrade --check
+~/.local/bin/rindle upgrade
 ```
 
-Daily automatic CLI updates are opt-in and independent of history synchronization. The history sync schedule runs every three hours after `rindle setup`, unless `--no-schedule` was supplied.
+Rindle checks the newest stable GitHub Release. The update installs the CLI and helper together, then checks whether the Safari folder permission is still valid. If the helper needs you to select the folder again, the interactive installer will ask.
 
-## Release process
+You can choose automatic daily CLI updates:
 
 ```sh
-just check
-just docs-check
-just release-plan
-just release-build-local
+~/.local/bin/rindle auto-update on
 ```
 
-The hand-authored [release workflow](https://github.com/amxv/rindle/blob/main/.github/workflows/release.yml) builds and smoke-tests the checksummed CLI+app archives on macOS 15 arm64 and macOS 15 Intel runners. `workflow_dispatch` tests packaging without publishing. A version tag publishes both archives and a copy of the website installer.
-
-There are **no Apple Developer ID, certificate-export, or notarization secrets**. Gatekeeper itself is never disabled; users who choose to download the `.app` through a browser rather than the verified installer may encounter Gatekeeper restrictions.
-
-To test both target archives locally without publishing:
+To turn them off:
 
 ```sh
-just release-build-local
-(cd target/distrib && shasum -a 256 -c rindle-aarch64-apple-darwin.tar.gz.sha256)
-(cd target/distrib && shasum -a 256 -c rindle-x86_64-apple-darwin.tar.gz.sha256)
+~/.local/bin/rindle auto-update off
 ```
 
-Release archives are ad-hoc signed by design. GitHub Release SHA-256 checksums provide integrity checks; this should not be confused with Apple's notarized publisher verification.
+Software updates are distinct from the three-hour background history sync. Updates are off by default.
+
+## Source and release process
+
+Rindle's [source code](https://github.com/amxv/rindle) includes the packaging scripts, SHA-256 checks, and macOS CI workflow. The project publishes separate archives for Apple Silicon and Intel with the same versioned source. See the [changelog](/docs/changelog) for what's new.

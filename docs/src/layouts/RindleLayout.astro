@@ -1,0 +1,57 @@
+---
+import SiteFooter from "zuedocs/components/SiteFooter.astro";
+import SiteHeader from "zuedocs/components/SiteHeader.astro";
+import type { PrimaryNavItem, SiteConfig } from "zuedocs/types";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  siteConfig: SiteConfig;
+  primaryNav: PrimaryNavItem[];
+}
+
+const { title, description, siteConfig, primaryNav } = Astro.props;
+const logo = siteConfig.faviconHref ?? "/favicon.svg";
+const accentStyle = [
+  siteConfig.accentColor ? `--site-accent:${siteConfig.accentColor}` : "",
+  siteConfig.accentColorDark ? `--site-accent-dark:${siteConfig.accentColorDark}` : ""
+].filter(Boolean).join(";");
+---
+
+<!doctype html>
+<html lang="en" style={accentStyle || undefined}>
+  <head>
+    <script is:inline>
+      (() => {
+        const key = "zuedocs-theme-mode";
+        const saved = window.localStorage.getItem(key);
+        const mode = saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+        const current = mode === "system"
+          ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : mode;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = current;
+        document.documentElement.style.colorScheme = current;
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f7f1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" href={logo} type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap.xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <SiteHeader siteConfig={siteConfig} primaryNav={primaryNav} />
+    <main><slot /></main>
+    <SiteFooter siteConfig={siteConfig} />
+  </body>
+</html>

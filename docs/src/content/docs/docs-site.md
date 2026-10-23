@@ -1,57 +1,38 @@
 ---
-title: Docs site maintenance
-description: Maintain the Astro/ZueDocs site without mixing JavaScript tooling into the Rust root.
-order: 5
+title: Documentation development
+description: How the Rindle documentation website is built and deployed.
+order: 14
 category: Reference
-summary: The docs workspace boundary, checks, and Vercel behavior.
+summary: Astro, documentation pages, checks, and the Vercel deployment workflow.
 ---
 
-## Workspace boundary
+Rindle's documentation is a static [Astro](https://astro.build/) site, using [ZueDocs](https://github.com/amxv/zuedocs) for reading, navigation, page search, and Markdown support.
 
-Everything required by the web app lives in `docs/`:
+This page is for people contributing to the documentation. You don't need to do any of this to use Rindle.
 
-```text
-docs/package.json
-docs/bun.lock
-docs/astro.config.mjs
-docs/vercel.json
-docs/scripts/
-docs/src/
-```
+## Run it locally
 
-The repository root intentionally has no Node package or Astro configuration.
+From the repository root:
 
-## Development
-
-```bash
+```sh
 just docs-install
 just docs-dev
 ```
 
-## Validation
+The site lives under `docs/`. Content pages are Markdown files in `docs/src/content/docs/`, and the homepage is `docs/src/pages/index.astro`. Design tokens and the site stylesheet are in `docs/src/styles/`.
 
-```bash
+## Check changes
+
+```sh
 just docs-test
 just docs-check
+just docs-build
 ```
 
-Astro check is sufficient locally; GitHub Actions builds the production output before deploying to Vercel.
+The checks validate the site and its deployment workflow. The documentation can be read normally in a browser or as Markdown, using the `.md` versions of its routes.
 
-## Vercel
+## Publishing documentation
 
-Set the Vercel project Root Directory to `docs` and connect its GitHub repo,
-but keep `git.deploymentEnabled: false` in the committed `vercel.json`. The
-`.github/workflows/docs.yml` workflow responds to `docs/**` changes on
-`main`, validates Astro, and deploys with the Vercel CLI. Rust-only and
-Cargo changes never request a Vercel deployment, so they cannot use its
-daily deployment quota through this pipeline.
+The GitHub Actions docs workflow deploys the static site to Vercel after changes in `docs/` are pushed to `main`. The public URL is **[rindle.ashray.xyz](https://rindle.ashray.xyz)**.
 
-The one-time setup provisions a project-scoped CI token as the `VERCEL_TOKEN`
-GitHub Actions secret and saves the two non-sensitive project IDs as Actions
-variables. The GitHub workflow builds and deploys Astro's static
-output with `--prebuilt`, avoiding broad settings calls that may fail with
-restricted tokens. Agents use only `just docs-check` for local Astro
-validation. `just docs-test` validates both the GitHub path
-filter and the retained local Git diff helper `docs/scripts/should-build.mjs`.
-It is deliberately **not** wired to `ignoreCommand`, because a canceled
-Vercel Ignored Build Step still counts toward deployment quotas.
+Site deployment is separate from native GitHub Releases: improving a guide does not require a new CLI version.
