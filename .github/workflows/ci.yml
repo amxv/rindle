@@ -15,6 +15,7 @@ on:
       - "src/**"
       - "tests/**"
       - "extension/**"
+      - "experiments/**"
   pull_request:
     branches: [main]
     paths:
@@ -29,6 +30,7 @@ on:
       - "src/**"
       - "tests/**"
       - "extension/**"
+      - "experiments/**"
   workflow_dispatch:
 
 permissions:
@@ -69,3 +71,6 @@ jobs:
 
       - name: Extension tests
         run: node --test extension/*.test.mjs
+
+      - name: Compile restricted Safari folder-access experiment
+        run: ./experiments/scoped-safari/build.sh

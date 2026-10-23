@@ -8,6 +8,14 @@ Rindle is currently **macOS-only and unreleased**. The repository is ready for l
 
 **Safari ↔ iPhone syncing is experimental.** Although Rindle can insert records in Mac Safari history and trigger hidden sync attempts, Safari's private database may advance its local sync checkpoint even when iCloud reports an upload error. We observed this on macOS 26.3.1. Do not treat a completed local checkpoint as proof the URLs appeared in iPhone Safari. A one-entry test using the supported `History.json` importer also did not produce an iPhone suggestion, so it is **not a verified workaround**. Rindle now replicates the earlier user-confirmed hidden Safari approach with a fresh, generation-aligned Apple.com heartbeat. Unattended iPhone delivery still requires device-side verification.
 
+## Privacy and macOS permissions
+
+The current unattended integration accesses Safari's protected `~/Library/Safari/History.db`. macOS requires **Full Disk Access (FDA)** for a standalone background process to do that via direct SQLite access. **FDA is not restricted to Safari history**: it can expose other apps' sensitive data, including Mail and Messages. Rindle's own code only accesses the required browser databases and its local sync ledger, but its current unsandboxed binary has wider operating-system authority when granted FDA. You should understand and accept that distinction before enabling background sync. The one-shot Dia native host, source validation and history ledger work without FDA.
+
+For users who do not grant FDA, keep the automated job disabled with `rindle setup --browser dia --no-schedule`. You can revoke the installed binary's grant at any time under **System Settings → Privacy & Security → Full Disk Access**. Rindle then detects the scheduled read failure and does not alter Safari history.
+
+We are developing a **narrower alternative**, using a sandboxed, signed helper and one-time `NSOpenPanel` selection of only `~/Library/Safari`. Apple supports security-scoped bookmarks for later runs, but the protected Safari folder might still be blocked by additional mandatory access controls. The read-only, independently sandboxed proof-of-concept is in [`experiments/scoped-safari`](experiments/scoped-safari); **it is not distributed or installed**. It must pass a real folder-selection and unattended bookmark-persistence test before replacing FDA. The public release also needs stable code signing so macOS can recognize future updates without repeated privacy prompts.
+
 ## How it works
 
 - **Safari → Dia:** iCloud syncs iPhone visits to Mac Safari. Rindle queues remote-origin URLs locally. When Dia opens, its Manifest V3 extension checks for existing visits, then imports missing URLs through `chrome.history.addUrl()` without opening the websites. It catches up on startup and periodically while running.

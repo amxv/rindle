@@ -34,6 +34,8 @@ rindle status
 
 Rindle reports `BLOCKED` if the last scheduled run lacked Safari history access. macOS requires you to approve Full Disk Access manually; Rindle never modifies privacy permissions itself.
 
+Full Disk Access grants substantially more authority than browsing-history access. Only approve it if you trust the installed Rindle executable. A less-invasive approach using a sandboxed helper, a one-time Safari-folder picker and a security-scoped bookmark is under investigation, but not yet verified. Read [Privacy and permissions](/docs/privacy) before opting in.
+
 ## 2. Load the extension in Dia
 
 1. Open `dia://extensions` or Dia's Extensions settings.
