@@ -43,6 +43,11 @@ fn browser_paths(browser: Browser) -> Result<Vec<PathBuf>> {
         Browser::Dia => vec![
             dir.join("Dia/User Data/NativeMessagingHosts"),
             dir.join("Dia/NativeMessagingHosts"),
+            // Dia uses ArcCore, a Chromium fork. Some builds resolve native
+            // hosts using the unbranded Chromium registration directory
+            // rather than Dia's own user-data root. Keep the host's allowed
+            // extension origin fixed to Rindle's ID in all locations.
+            dir.join("Chromium/NativeMessagingHosts"),
         ],
         Browser::Chrome => vec![
             dir.join("Google/Chrome/NativeMessagingHosts"),
@@ -134,6 +139,37 @@ fn host_manifest(wrapper: &Path) -> Result<Vec<u8>> {
         "type": "stdio",
         "allowed_origins": [format!("chrome-extension://{EXTENSION_ID}/")],
     }))?)
+}
+
+/// Verify every location Rindle registered for this browser, without invoking
+/// the native host or modifying the user's browsing history.
+fn registered_host_count(browser: Browser) -> Result<(usize, usize)> {
+    let paths = browser_paths(browser)?;
+    let mut valid = 0;
+    for dir in &paths {
+        let path = dir.join(format!("{HOST_NAME}.json"));
+        let Ok(contents) = fs::read(&path) else {
+            continue;
+        };
+        let Ok(manifest) = serde_json::from_slice::<Value>(&contents) else {
+            continue;
+        };
+        let expected_origin = format!("chrome-extension://{EXTENSION_ID}/");
+        if manifest["name"] != HOST_NAME
+            || manifest["type"] != "stdio"
+            || manifest["allowed_origins"] != json!([expected_origin])
+        {
+            continue;
+        }
+        if let Some(target) = manifest["path"].as_str()
+            && let Ok(meta) = fs::metadata(target)
+            && meta.is_file()
+            && meta.permissions().mode() & 0o100 != 0
+        {
+            valid += 1;
+        }
+    }
+    Ok((valid, paths.len()))
 }
 
 fn register_host(browser: Browser, binary: &Path) -> Result<()> {
@@ -287,6 +323,11 @@ pub fn status() -> Result<()> {
     }
     for browser in browsers {
         if let Some(item) = Browser::ALL.iter().find(|b| b.as_str() == browser) {
+            let (valid, total) = registered_host_count(*item)?;
+            println!(
+                "{}: native host registrations {valid}/{total} valid",
+                browser
+            );
             match store.last_contact(*item)? {
                 Some(timestamp) => {
                     println!("{}: connected (last contact Unix {timestamp})", browser)
@@ -358,6 +399,28 @@ mod tests {
             json!(["history", "nativeMessaging", "storage", "alarms"])
         );
         assert_eq!(EXTENSION_ID.len(), 32);
+        Ok(())
+    }
+
+    #[test]
+    fn dia_registration_uses_its_native_and_chromium_fallback_directories() -> Result<()> {
+        let locations = browser_paths(Browser::Dia)?;
+        assert_eq!(locations.len(), 3);
+        assert!(
+            locations
+                .iter()
+                .any(|p| p.ends_with("Dia/NativeMessagingHosts"))
+        );
+        assert!(
+            locations
+                .iter()
+                .any(|p| p.ends_with("Dia/User Data/NativeMessagingHosts"))
+        );
+        assert!(
+            locations
+                .iter()
+                .any(|p| p.ends_with("Chromium/NativeMessagingHosts"))
+        );
         Ok(())
     }
 }

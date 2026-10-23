@@ -42,6 +42,8 @@ node --test extension/utils.test.mjs
 
 Load the unpacked extension and click **Sync now** from its popup, then confirm `rindle status` says Dia connected. To enable truly unattended three-hour sync, rerun `rindle setup --browser dia` without `--no-schedule` after testing. Safari's protected database may require granting Full Disk Access to the executable or the app launching it; Rindle reports access errors instead of bypassing macOS protections.
 
+If Dia says **“Specified native messaging host not found”**, run `rindle setup --browser dia --no-schedule` again. Rindle registers both Dia's native-host directories and the Chromium fallback used by some ArcCore builds. Reload the unpacked extension, and if the error persists, fully quit and reopen Dia once. `rindle status` reports whether the host registrations are valid and whether Dia has successfully connected.
+
 For an initial small-scale test after loading the extension, run `rindle sync --limit 3` to import at most three Chromium URLs rather than starting with a full 1,000-URL batch.
 
 ## Chrome and Edge

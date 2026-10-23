@@ -31,6 +31,13 @@ fn setup_and_native_host_round_trip_without_touching_real_browsers() -> Result<(
     );
     let contents: serde_json::Value = serde_json::from_slice(&fs::read(manifest)?)?;
     ensure!(contents["allowed_origins"][0] == format!("chrome-extension://{EXTENSION_ID}/"));
+    let fallback = home
+        .join("Library/Application Support/Chromium/NativeMessagingHosts/xyz.rindle.history.json");
+    let fallback_manifest: serde_json::Value = serde_json::from_slice(&fs::read(&fallback)?)?;
+    ensure!(
+        fallback_manifest == contents,
+        "Chromium fallback registration differs from Dia"
+    );
     ensure!(data.join("extension/background.js").exists());
     ensure!(data.join("extension/manifest.json").exists());
     ensure!(

@@ -59,4 +59,6 @@ node --test extension/utils.test.mjs
 
 This test setup does **not** enable a recurring job. After installing the extension and verifying the local connection, run `rindle setup --browser dia` to turn on unattended syncing. macOS may require Full Disk Access for the Rindle executable or its launching terminal.
 
+If Rindle displays **“Specified native messaging host not found”**, rerun `rindle setup --browser dia --no-schedule` to repair Dia's native-host registration, reload the extension, and if necessary quit and reopen Dia once. This does not launch Safari or change browser history.
+
 Before enabling unattended syncing, try `rindle sync --limit 3` to transfer a small batch and verify suggestions on your iPhone. The standard schedule processes up to 1,000 new Chromium URLs per run.
