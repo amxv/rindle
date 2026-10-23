@@ -49,6 +49,6 @@ The GitHub Release must contain `rindle-aarch64-apple-darwin.tar.gz`, `rindle-x8
 
 Default install is **not** Full Disk Access. A one-time macOS system folder picker authorizes exactly `~/Library/Safari`, using a sandboxed security-scoped bookmark. On updates, the installer verifies saved access and prompts again if an ad-hoc signature change requires it. Noninteractive automatic upgrades must fail safely and preserve the old binary/helper when reauthorization is needed.
 
-Keep `rindle upgrade` and optional daily `rindle auto-update` working, including `CLI_UPGRADE_TARGET` and `CLI_VERSION` upgrade paths. The normal history sync LaunchAgent remains an independent, three-hour schedule bounded at 100 URLs per direction per run. Preserve the user's existing ledger and browser extension identity.
+Keep `rindle upgrade` and optional daily `rindle auto-update` working, including `CLI_UPGRADE_TARGET` and `CLI_VERSION` upgrade paths. The normal history sync LaunchAgent remains an independent, three-hour schedule bounded at 300 URLs per direction per run. Preserve the user's existing ledger and browser extension identity.
 
 Report version, tag, source commit, release URL, two archive/checksum assets, installer smoke test, CI result, source/permission caveats, and any unresolved blockers. Never claim a release succeeded before its workflow and assets are verified.

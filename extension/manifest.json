@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rindle History Sync",
   "description": "Private two-way URL history synchronization with Safari on your Mac and iPhone.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minimum_chrome_version": "120",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnVtG8dGUK6oMzXjL2t5ZUqjEtvCUYejlXe3segqbIlxl9PALWZbVaypbg41Wazrg/tGQ1YdByTAwUxVGff0S/AkSVFtpZ4d9qoc4EQCqMXsa0iBPGjfwSAZWjo6s7RYqFZT2cyqe13UW/HeuKmwIbkV0/Ffv5e74bpLD639KquN8XdO6n4O8/kb93DOtZJf327to6OoafcbXu/6UZ8M0ipfROV2rKKPQ7PeMvLEKpW74tIbtWVyoxEPy4JTGjLgJsatgUBoeEbxC+uE1G5bwwcn3ues+gtBtTqINChZGbKG5ynKjbtIcmswU+8RKpRXR7BMlQOrlGQIIbtxK8yIPDwIDAQAB",
   "permissions": ["history", "nativeMessaging", "storage", "alarms"],

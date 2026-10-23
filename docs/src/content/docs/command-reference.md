@@ -32,7 +32,7 @@ The included Safari helper is the default. Running `setup` again repairs Native 
 | `rindle sync --limit 3` | Limit a manual sync to at most three URLs per direction |
 | `rindle uninstall` | Remove background sync and Native Messaging registrations; keep browsing history |
 
-The manual sync limit is **1–1,000** URLs per direction. The unattended job is deliberately capped at **100 URLs per direction every three hours**.
+The manual sync limit is **1–1,000** URLs per direction. The unattended job is capped at **300 URLs per direction every three hours**.
 
 ## Software updates
 

@@ -6,6 +6,10 @@ category: Reference
 summary: Changes in the first release and future updates.
 ---
 
+## 0.1.1 — October 24, 2026
+
+- Increased the unattended macOS history backfill limit from 100 to 300 URLs per direction every three hours. Manual sync limits remain unchanged.
+
 ## 0.1.0 — October 24, 2026
 
 - Verified both directions of Safari ↔ Dia history synchronization with an iPhone, including Chromium URL redirects and an automatic background run.

@@ -17,7 +17,7 @@ const SYNC_JOB: &str = "xyz.rindle.sync";
 const SYNC_INTERVAL: u32 = 3 * 60 * 60;
 // Initial iCloud uploads should remain deliberately bounded. Thousands of
 // backfilled Chromium URLs are transferred in small, deduplicated batches.
-const SYNC_BATCH_LIMIT: usize = 100;
+const SYNC_BATCH_LIMIT: usize = 300;
 const MANIFEST: &str = include_str!("../../extension/manifest.json");
 const EXTENSION_FILES: [(&str, &str); 4] = [
     (
@@ -451,7 +451,7 @@ pub fn status() -> Result<()> {
     println!(
         "Background sync: {}",
         if job_path()?.exists() {
-            "configured (every 3 hours, max 100 URLs per direction per run)"
+            "configured (every 3 hours, max 300 URLs per direction per run)"
         } else {
             "off"
         }
@@ -552,7 +552,7 @@ mod tests {
         let plist = job_xml(&exe, &dir.path().join("rindle.log"), None);
         assert!(plist.contains("&amp;"));
         assert!(plist.contains("<integer>10800</integer>"));
-        assert!(plist.contains("<string>--limit</string><string>100</string>"));
+        assert!(plist.contains("<string>--limit</string><string>300</string>"));
         let scoped = job_xml(
             &exe,
             &dir.path().join("rindle.log"),
