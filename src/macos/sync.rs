@@ -1,7 +1,7 @@
 //! Three-hour macOS sync task: queue remote Safari URLs for extensions, inject
 //! new Chromium URLs into Safari, and use only Apple's home page as the hidden
 //! iCloud sync heartbeat. No user browsing URL is ever navigated.
-use crate::macos::{safari, setup};
+use crate::macos::{backend, safari, setup};
 use crate::state::{self, Store};
 use anyhow::{Context, Result, bail};
 use std::fs::{self, OpenOptions};
@@ -106,7 +106,7 @@ impl HiddenSafari {
     fn recorded_heartbeat_generation(url: &str) -> Result<i64> {
         let start = Instant::now();
         while start.elapsed() < Duration::from_secs(30) {
-            if let Ok(Some(generation)) = safari::Safari::visit_generation_read_only(url) {
+            if let Ok(Some(generation)) = backend::Backend::visit_generation_read_only(url) {
                 return Ok(generation);
             }
             thread::sleep(Duration::from_secs(2));
@@ -128,14 +128,14 @@ impl HiddenSafari {
         // asynchronously, so wait for it before emitting a fresh heartbeat.
         let start = Instant::now();
         while start.elapsed() < Duration::from_secs(15) {
-            if safari::Safari::current_generation_read_only()
+            if backend::Backend::current_generation_read_only()
                 .is_ok_and(|current| current >= target_generation)
             {
                 break;
             }
             thread::sleep(Duration::from_secs(2));
         }
-        if !safari::Safari::current_generation_read_only()
+        if !backend::Backend::current_generation_read_only()
             .is_ok_and(|current| current >= target_generation)
         {
             bail!(
@@ -204,7 +204,7 @@ fn wait_for_checkpoint(generation: i64) -> Result<bool> {
     let mut checkpoint_seen = false;
     while start.elapsed() < MAX_SYNC_WAIT {
         thread::sleep(Duration::from_secs(5));
-        if safari::Safari::synced_generation_read_only().is_ok_and(|last| last >= generation) {
+        if backend::Backend::synced_generation_read_only().is_ok_and(|last| last >= generation) {
             checkpoint_seen = true;
         }
         if checkpoint_seen && start.elapsed() >= MIN_IDLE_AFTER_HEARTBEAT {
@@ -225,7 +225,7 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         return Ok(());
     }
     if dry_run {
-        let safari = safari::Safari::open()?;
+        let safari = backend::Backend::open()?;
         let remote = safari.remote_urls()?;
         let outbound = store.pending_outbound(limit)?;
         println!(
@@ -244,7 +244,7 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         return Ok(());
     };
     setup::refresh_if_present()?;
-    let mut safari = safari::Safari::open()?;
+    let mut safari = backend::Backend::open()?;
     let remote = safari.remote_urls()?;
     let mut queued = store.enqueue_remote(&remote.into_iter().take(limit).collect::<Vec<_>>())?;
     let outbound = store.pending_outbound(limit)?;
@@ -300,7 +300,7 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         }
         // Safari's launch pulls new iCloud history into the local SQLite store.
         // Stage the refreshed records after the fetch, not only before launch.
-        let refreshed = safari::Safari::open()?.remote_urls()?;
+        let refreshed = backend::Backend::open()?.remote_urls()?;
         queued += store.enqueue_remote(&refreshed.into_iter().take(limit).collect::<Vec<_>>())?;
     }
     println!("Safari → browsers: {queued} newly queued after iCloud refresh.");

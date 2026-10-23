@@ -1,6 +1,28 @@
 import AppKit
+import Darwin
 import Foundation
 import SQLite3
+
+if CommandLine.arguments.contains("--serve") {
+    runScopedService()
+    exit(0)
+}
+
+func actualUserHomeDirectory() -> URL? {
+    guard let record = getpwuid(getuid()), let cPath = record.pointee.pw_dir else {
+        return nil
+    }
+    // NSHomeDirectory / FileManager.default.homeDirectoryForCurrentUser are
+    // remapped to the app's container when running inside App Sandbox.
+    return URL(fileURLWithPath: String(cString: cPath), isDirectory: true)
+}
+
+func exactSafariFolder() -> URL? {
+    actualUserHomeDirectory()?
+        .appendingPathComponent("Library/Safari", isDirectory: true)
+        .resolvingSymlinksInPath()
+        .standardizedFileURL
+}
 
 func logResult(_ text: String) {
     let output = bookmarkFile().deletingLastPathComponent().appendingPathComponent("probe.log")
@@ -39,6 +61,46 @@ func check(_ folder: URL) -> Bool {
     return false
 }
 
+/// Confirm the selected folder supports the operations required by Rindle's
+/// Safari adapter. Never modify Safari history itself in this experiment.
+func checkWriteWithoutTouchingHistory(_ folder: URL) -> Bool {
+    let historyPath = folder.appendingPathComponent("History.db").path
+    var db: OpaquePointer?
+    let result = sqlite3_open_v2(historyPath, &db, SQLITE_OPEN_READWRITE, nil)
+    guard result == SQLITE_OK, let db else {
+        if let db { sqlite3_close(db) }
+        logResult("WRITE CHECK: cannot open existing Safari History.db read/write (SQLite status \(result))")
+        return false
+    }
+    // Opening SQLITE_OPEN_READWRITE does not itself insert or update a visit.
+    // Explicitly set query_only to defend against accidental writes by future
+    // additions to this proof-of-concept.
+    guard sqlite3_exec(db, "PRAGMA query_only=ON", nil, nil, nil) == SQLITE_OK else {
+        sqlite3_close(db)
+        logResult("WRITE CHECK: SQLite query_only initialization failed")
+        return false
+    }
+    sqlite3_close(db)
+    logResult("WRITE CHECK: Safari History.db opened read/write; no SQL mutations performed")
+
+    let probeURL = folder.appendingPathComponent(".rindle-scoped-write-test-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: probeURL) }
+    do {
+        let sentinel = Data("Rindle permission test only; no browsing data".utf8)
+        try sentinel.write(to: probeURL, options: .withoutOverwriting)
+        guard try Data(contentsOf: probeURL) == sentinel else {
+            logResult("WRITE CHECK: temporary file verification failed")
+            return false
+        }
+        try FileManager.default.removeItem(at: probeURL)
+        logResult("WRITE CHECK: created, verified, and deleted one unrelated test file in selected folder")
+        return true
+    } catch {
+        logResult("WRITE CHECK: file create/read/delete denied (\(error.localizedDescription))")
+        return false
+    }
+}
+
 func bookmarkFile() -> URL {
     let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     let folder = base.appendingPathComponent("RindleScopedProbe", isDirectory: true)
@@ -46,7 +108,7 @@ func bookmarkFile() -> URL {
     return folder.appendingPathComponent("safari-bookmark.dat")
 }
 
-func verifySavedBookmark() {
+func verifySavedBookmark(checkWrites: Bool = false) {
     do {
         let bookmark = try Data(contentsOf: bookmarkFile())
         var stale = false
@@ -56,13 +118,26 @@ func verifySavedBookmark() {
         logResult("Bookmark resolved, stale=\(stale), startAccessing=\(allowed)")
         let works = check(folder)
         logResult("PERSISTENCE CHECK: \(works ? "PASS" : "FAIL")")
+        if checkWrites {
+            guard let safeFolder = exactSafariFolder(),
+                folder.resolvingSymlinksInPath().standardizedFileURL == safeFolder else {
+                logResult("WRITE CHECK: selected folder is not ~/Library/Safari; refusing write probe")
+                return
+            }
+            guard works && allowed else {
+                logResult("WRITE CHECK: saved permission did not pass the read-only test")
+                return
+            }
+            let writable = checkWriteWithoutTouchingHistory(folder)
+            logResult("SCOPED WRITE CHECK: \(writable ? "PASS" : "FAIL")")
+        }
     } catch {
         logResult("Bookmark resolve FAILED: \(type(of: error)) / \(error.localizedDescription)")
     }
 }
 
-if CommandLine.arguments.contains("--verify") {
-    verifySavedBookmark()
+if CommandLine.arguments.contains("--verify") || CommandLine.arguments.contains("--write-check") {
+    verifySavedBookmark(checkWrites: CommandLine.arguments.contains("--write-check"))
     exit(0)
 }
 
@@ -75,12 +150,11 @@ panel.canChooseDirectories = true
 panel.canChooseFiles = false
 panel.allowsMultipleSelection = false
 panel.canCreateDirectories = false
-panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Safari", isDirectory: true)
+panel.directoryURL = exactSafariFolder()
 app.activate(ignoringOtherApps: true)
 let outcome = panel.runModal()
 if outcome == .OK, let selected = panel.url {
-    let expected = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Safari", isDirectory: true).standardizedFileURL
-    guard selected.standardizedFileURL == expected else {
+    guard let expected = exactSafariFolder(), selected.resolvingSymlinksInPath().standardizedFileURL == expected else {
         logResult("Rejected selection outside ~/Library/Safari (no broad folder grant stored)")
         app.terminate(nil)
         exit(3)

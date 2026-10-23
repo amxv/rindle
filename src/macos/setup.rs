@@ -414,11 +414,24 @@ pub fn status() -> Result<()> {
         }
     );
     show_schedule_health()?;
-    match crate::macos::safari::Safari::open() {
+    if env::var_os("RINDLE_SCOPED_SAFARI_HELPER").is_some()
+        && job_path()?.is_file()
+        && !fs::read_to_string(job_path()?)?.contains("RINDLE_SCOPED_SAFARI_HELPER")
+    {
+        println!(
+            "Background sync backend: the installed LaunchAgent still uses direct SQLite / FDA; the scoped helper applies only to this command."
+        );
+    }
+    match crate::macos::backend::Backend::open() {
         Ok(safari) => {
             let (_, checkpoint) = safari.generations()?;
             println!(
-                "Safari history: accessible (local sync checkpoint {checkpoint}; iCloud delivery is NOT verified)"
+                "Safari history: accessible via {} (local sync checkpoint {checkpoint}; iCloud delivery is NOT verified)",
+                if safari.is_scoped() {
+                    "sandboxed, folder-scoped helper (no FDA required)"
+                } else {
+                    "direct SQLite access"
+                }
             );
         }
         Err(error) => println!("Safari history: unavailable ({error:#})"),

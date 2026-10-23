@@ -7,7 +7,7 @@ app="$output/RindleScopedProbe.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp Info.plist "$app/Contents/Info.plist"
 chmod 644 "$app/Contents/Info.plist"
-swiftc -O -framework AppKit -framework Foundation -lsqlite3 ScopedSafariProbe.swift -o "$app/Contents/MacOS/RindleScopedProbe"
+swiftc -O -framework AppKit -framework Foundation -lsqlite3 main.swift ScopedSafariService.swift -o "$app/Contents/MacOS/RindleScopedProbe"
 chmod 755 "$app/Contents/MacOS/RindleScopedProbe"
 # For bookmark persistence across versions use a stable, properly provisioned
 # signing identity. Ad-hoc is only for this *isolated* local experiment.
