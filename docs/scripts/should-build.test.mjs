@@ -152,5 +152,6 @@ test('GitHub Docs workflow triggers only for docs changes on main', () => {
   assert.match(workflow, /prepare-prebuilt\.mjs/);
   assert.match(workflow, /vercel@latest deploy --prebuilt --prod/);
   assert.match(workflow, /- name: Deploy production docs to Vercel\n(?:        #[^\n]*\n)*        working-directory: \./);
+  assert.match(workflow, /cp -R docs\/\.vercel\/output \.vercel\/output/);
   assert.match(workflow, /github\.repository != 'amxv\/rust-cli-template'/);
 });

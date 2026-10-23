@@ -79,4 +79,10 @@ jobs:
           fi
           # Project-scoped tokens can fail broad CLI project-settings queries.
           # The Build Output API bundle avoids 'vercel pull/build' entirely.
+          # Vercel resolves project root docs/ relative to this repository, but
+          # --prebuilt reads .vercel/output relative to the current directory.
+          test -f docs/.vercel/output/config.json
+          mkdir -p .vercel
+          cp -R docs/.vercel/output .vercel/output
+          test -f .vercel/output/config.json
           npx --yes vercel@latest deploy --prebuilt --prod --yes --non-interactive
