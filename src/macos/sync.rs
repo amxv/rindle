@@ -8,11 +8,14 @@ use std::fs::{self, OpenOptions};
 use std::path::PathBuf;
 use std::process::Command;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const EXPORT_LIMIT_PER_RUN: usize = 1000;
-const HEARTBEAT_URL: &str = "https://www.apple.com/?rindle-sync=1";
+const HEARTBEAT_PREFIX: &str = "https://www.apple.com/?rindle-sync-heartbeat=";
 const MAX_SYNC_WAIT: Duration = Duration::from_secs(150);
+// Safari's Cloud History idle-sync delay is about 90 seconds on tested macOS.
+// An early local checkpoint is not an iCloud delivery acknowledgment.
+const MIN_IDLE_AFTER_HEARTBEAT: Duration = Duration::from_secs(110);
 const ICLOUD_FETCH_WARMUP: Duration = Duration::from_secs(15);
 
 struct SyncLock(PathBuf);
@@ -69,27 +72,93 @@ fn exec_success(program: &str, args: &[&str]) -> Result<()> {
 /// Own only Safari sessions started by Rindle. A user who activates Safari
 /// while the helper is running should be allowed to keep using it.
 struct HiddenSafari {
-    created_heartbeat: bool,
+    created_heartbeats: usize,
 }
 
 impl HiddenSafari {
-    fn start(trigger_upload: bool) -> Result<Self> {
+    fn start(pending_generation: Option<i64>) -> Result<Self> {
         if safari_is_running() {
             bail!("Safari is already running; refusing to interfere with an existing session")
         }
         exec_success("open", &["-gj", "-a", "Safari"])?;
-        let session = Self {
-            created_heartbeat: trigger_upload,
+        let mut session = Self {
+            created_heartbeats: 0,
         };
-        if trigger_upload {
-            // This literal is intentionally not constructed from any user history.
-            let script = format!(
-                "tell application \"Safari\" to make new document with properties {{URL:\"{HEARTBEAT_URL}\"}}"
-            );
-            exec_success("osascript", &["-e", &script])?;
+        if let Some(generation) = pending_generation {
+            session.trigger_upload(generation)?;
         }
         Ok(session)
     }
+
+    /// Open ONLY a newly tagged Apple.com URL, never an item from browser
+    /// history. Each invocation must produce a distinct visit in Safari.
+    fn heartbeat(&mut self) -> Result<String> {
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+        let url = format!("{HEARTBEAT_PREFIX}{}-{nonce}", std::process::id());
+        let script = format!(
+            "tell application \"Safari\" to make new document with properties {{URL:\"{url}\"}}"
+        );
+        exec_success("osascript", &["-e", &script])?;
+        self.created_heartbeats += 1;
+        Ok(url)
+    }
+
+    fn recorded_heartbeat_generation(url: &str) -> Result<i64> {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(30) {
+            if let Ok(Some(generation)) = safari::Safari::visit_generation_read_only(url) {
+                return Ok(generation);
+            }
+            thread::sleep(Duration::from_secs(2));
+        }
+        bail!("Safari did not record the harmless Apple.com heartbeat")
+    }
+
+    fn trigger_upload(&mut self, target_generation: i64) -> Result<()> {
+        let first = self.heartbeat()?;
+        let first_generation = Self::recorded_heartbeat_generation(&first)?;
+        if !heartbeat_is_early(first_generation, target_generation) {
+            println!("Harmless Safari heartbeat recorded at generation {first_generation}.");
+            return Ok(());
+        }
+
+        // Proven successful tests had the imported URL AND the heartbeat at
+        // the same generation. In the failed Rindle test the heartbeat was
+        // one generation *behind* the import. Safari bumps current_generation
+        // asynchronously, so wait for it before emitting a fresh heartbeat.
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(15) {
+            if safari::Safari::current_generation_read_only()
+                .is_ok_and(|current| current >= target_generation)
+            {
+                break;
+            }
+            thread::sleep(Duration::from_secs(2));
+        }
+        if !safari::Safari::current_generation_read_only()
+            .is_ok_and(|current| current >= target_generation)
+        {
+            bail!(
+                "Safari's history generation has not caught up; refusing to send an early heartbeat"
+            )
+        }
+
+        let second = self.heartbeat()?;
+        let second_generation = Self::recorded_heartbeat_generation(&second)?;
+        if heartbeat_is_early(second_generation, target_generation) {
+            bail!(
+                "Safari heartbeat generation {second_generation} is behind imported generation {target_generation}"
+            )
+        }
+        println!(
+            "Safari's first heartbeat was early (generation {first_generation}); a new harmless heartbeat recorded at generation {second_generation}."
+        );
+        Ok(())
+    }
+}
+
+fn heartbeat_is_early(heartbeat_generation: i64, imported_generation: i64) -> bool {
+    heartbeat_generation < imported_generation
 }
 
 impl Drop for HiddenSafari {
@@ -109,16 +178,15 @@ impl Drop for HiddenSafari {
         if !still_hidden {
             return;
         }
-        if self.created_heartbeat {
-            // Closing the heartbeat tab avoids cluttering Safari's restored
-            // windows. The only navigated URL was this fixed literal.
+        if self.created_heartbeats > 0 {
+            // Close only the unique heartbeat windows created by Rindle. Other
+            // tabs, windows and Safari browsing history are untouched.
             let script = r#"tell application "Safari"
-repeat with w in windows
+repeat with n from (count of windows) to 1 by -1
   try
-    set pageURL to URL of current tab of w
-    if pageURL is not missing value and pageURL contains "rindle-sync=1" then
-      close w
-      exit repeat
+    set pageURL to URL of current tab of window n
+    if pageURL is not missing value and pageURL contains "rindle-sync-heartbeat=" then
+      close window n
     end if
   end try
 end repeat
@@ -133,13 +201,17 @@ end tell"#;
 
 fn wait_for_checkpoint(generation: i64) -> Result<bool> {
     let start = Instant::now();
+    let mut checkpoint_seen = false;
     while start.elapsed() < MAX_SYNC_WAIT {
         thread::sleep(Duration::from_secs(5));
         if safari::Safari::synced_generation_read_only().is_ok_and(|last| last >= generation) {
+            checkpoint_seen = true;
+        }
+        if checkpoint_seen && start.elapsed() >= MIN_IDLE_AFTER_HEARTBEAT {
             return Ok(true);
         }
     }
-    Ok(false)
+    Ok(checkpoint_seen)
 }
 
 pub fn run(dry_run: bool, limit: usize) -> Result<()> {
@@ -212,7 +284,7 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
             );
         }
     } else {
-        let _session = HiddenSafari::start(pending.is_some())?;
+        let _session = HiddenSafari::start(pending)?;
         if let Some(generation) = pending {
             if wait_for_checkpoint(generation)? {
                 println!(
@@ -244,7 +316,20 @@ mod tests {
 
     #[test]
     fn heartbeat_never_contains_user_url_or_token() {
-        assert_eq!(HEARTBEAT_URL, "https://www.apple.com/?rindle-sync=1");
+        assert_eq!(
+            HEARTBEAT_PREFIX,
+            "https://www.apple.com/?rindle-sync-heartbeat="
+        );
+        assert!(MAX_SYNC_WAIT >= MIN_IDLE_AFTER_HEARTBEAT);
         assert_eq!(EXPORT_LIMIT_PER_RUN, 1000);
+    }
+
+    #[test]
+    fn an_early_heartbeat_requires_a_generation_aligned_retry() {
+        // Matching the pre-launch generation is insufficient when Safari
+        // imported rows were stamped with current_generation + 1.
+        assert!(heartbeat_is_early(1208, 1209));
+        assert!(!heartbeat_is_early(1209, 1209));
+        assert!(!heartbeat_is_early(1210, 1209));
     }
 }

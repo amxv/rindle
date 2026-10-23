@@ -8,7 +8,7 @@ Rindle is a macOS-only Rust CLI that synchronizes Safari/iCloud history with Dia
 - `src/main.rs`: process error and exit boundary.
 - `src/cli.rs`: clap argument model.
 - `src/lib.rs`: command dispatch.
-- `src/macos/`: Safari SQLite adapter, one hidden heartbeat, setup, and a user LaunchAgent.
+- `src/macos/`: Safari SQLite adapter, unique generation-aligned Apple.com heartbeat(s), setup, and a user LaunchAgent.
 - `src/state.rs`: local deduplicated browser history queue.
 - `src/native.rs`: browser-allowlisted, one-shot Native Messaging bridge.
 - `src/urls.rs`: privacy-oriented URL validation.

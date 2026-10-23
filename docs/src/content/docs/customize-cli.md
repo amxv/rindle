@@ -11,7 +11,7 @@ summary: Native Messaging, Safari history injection, durable queues, and safegua
 | Component | Job |
 | --- | --- |
 | `src/macos/safari.rs` | Read iCloud-origin visits, validate Safari history schema, and back up before inserting |
-| `src/macos/sync.rs` | Stage URL transfers and trigger one hidden Apple.com heartbeat when needed |
+| `src/macos/sync.rs` | Stage URL transfers and trigger a fresh, generation-checked hidden Apple.com heartbeat when needed |
 | `src/macos/setup.rs` | Install embedded extension files, browser-native hosts, and launchd schedule |
 | `src/state.rs` | Deduplication ledger, browser-specific queues, acknowledged imports |
 | `src/native.rs` | One-shot Native Messaging protocol with a fixed extension ID |
@@ -20,7 +20,7 @@ summary: Native Messaging, Safari history injection, durable queues, and safegua
 
 The LaunchAgent works without Dia running. It stores incoming iCloud URLs in SQLite; the extension consumes these URLs on startup and every five minutes while the browser is open. It calls `chrome.history.getVisits()` before `chrome.history.addUrl()` so a crash or retry does not duplicate a visit.
 
-The reverse direction also sends history records, not page loads. When necessary, Rindle launches Safari hidden and visits only `https://www.apple.com/?rindle-sync=1` to trigger iCloud's normal upload cycle. None of the pages found in Chromium history are opened.
+The reverse direction also sends history records, not page loads. When necessary, Rindle launches Safari hidden and opens a fresh `https://www.apple.com/?rindle-sync-heartbeat=<unique nonce>` URL to trigger the normal iCloud history upload. If Safari records that heartbeat before advancing to the generation of imported visits, it sends one more fresh Apple.com heartbeat **after** the generation catches up. It waits through the approximate 90-second idle-sync interval. None of the pages found in Chromium history are opened.
 
 ## Privacy and resilience
 

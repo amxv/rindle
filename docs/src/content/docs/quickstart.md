@@ -8,7 +8,7 @@ summary: Register the native helper, load Dia's extension, and enable background
 
 Rindle lets you keep using **Safari on your iPhone** and **Dia on your Mac**, while syncing their visited URLs for autocomplete. It transfers history records, not webpage visits.
 
-**Caution:** The macOS Safari history write path is an experimental, unsupported interface. A local iCloud sync checkpoint does not prove the iPhone has received an imported URL. In testing, Safari sometimes logged upload errors even when that checkpoint advanced. The initial release is held until this limitation is resolved or a supported alternative is validated.
+**Caution:** The macOS Safari history write path is an experimental, unsupported interface. A local iCloud sync checkpoint does not prove the iPhone has received an imported URL. In testing, Safari sometimes logged upload errors even when that checkpoint advanced. A separate one-entry test through Safari's native `History.json` importer also failed the iPhone autocomplete check. The initial release remains on hold until the corrected hidden-heartbeat approach passes end-to-end device verification.
 
 **The first Rindle release has not been published yet.** Use the [source instructions](#test-from-source) until then.
 
@@ -42,7 +42,7 @@ rindle sync --dry-run
 rindle sync
 ```
 
-The dry run does not modify history. A normal sync opens only one fixed Apple.com heartbeat URL while Safari is hidden, if an iCloud upload is pending. Dia can remain closed until you next use it; its extension catches up then.
+The dry run does not modify history. A normal sync opens a **unique Apple.com heartbeat URL** while Safari is hidden if an iCloud upload is pending. If Safari records it one history generation behind the imported URLs, Rindle waits and opens a second harmless Apple.com heartbeat to avoid silently skipping the imported batch. Safari remains hidden through its idle-sync period. Dia can remain closed until you next use it; its extension catches up then.
 
 ## Test from source
 

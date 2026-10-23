@@ -86,6 +86,41 @@ impl Safari {
         Self::synced_generation_at(&path)
     }
 
+    /// Safari increments its native history generation asynchronously after
+    /// launch/visits. A heartbeat recorded before the generation assigned to
+    /// an out-of-band import may not carry that imported record into iCloud.
+    pub fn current_generation_read_only() -> Result<i64> {
+        let path = database_path()?;
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .context("Cannot read Safari current history generation")?;
+        conn.busy_timeout(Duration::from_secs(2))?;
+        conn.query_row(
+            "SELECT CAST(value AS INTEGER) FROM metadata WHERE key='current_generation'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(Into::into)
+    }
+
+    /// Read the generation of one Safari visit without opening the writable
+    /// database or performing expensive integrity checks while Safari runs.
+    pub fn visit_generation_read_only(url: &str) -> Result<Option<i64>> {
+        let path = database_path()?;
+        Self::visit_generation_at(&path, url)
+    }
+
+    fn visit_generation_at(path: &Path, url: &str) -> Result<Option<i64>> {
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .context("Cannot read Safari visit generation")?;
+        conn.busy_timeout(Duration::from_secs(2))?;
+        conn.query_row(
+            "SELECT MAX(v.generation) FROM history_visits v JOIN history_items i ON i.id=v.history_item WHERE i.url=?1",
+            [url],
+            |row| row.get(0),
+        )
+        .map_err(Into::into)
+    }
+
     fn synced_generation_at(path: &Path) -> Result<i64> {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .context("Cannot read Safari history sync checkpoint")?;
@@ -294,6 +329,10 @@ mod tests {
         let path = dir.path().join("History.db");
         fixture(&path)?;
         assert_eq!(Safari::synced_generation_at(&path)?, 99);
+        assert_eq!(
+            Safari::visit_generation_at(&path, "https://from-iphone.example/a")?,
+            Some(99)
+        );
         let mut safari = Safari::open_at(&path)?;
         assert_eq!(safari.remote_urls()?, vec!["https://from-iphone.example/a"]);
         let items = vec![
@@ -326,6 +365,10 @@ mod tests {
             |r| r.get(0),
         )?;
         assert_eq!(origin, 0);
+        assert_eq!(
+            Safari::visit_generation_at(&path, "https://www.mozilla.org/article")?,
+            Some(101)
+        );
         assert_eq!(Safari::synced_generation_at(&path)?, 99);
         assert_eq!(fs::read_dir(dir.path().join("backups"))?.count(), 1);
         Ok(())
