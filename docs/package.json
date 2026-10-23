@@ -1,0 +1,21 @@
+{
+  "name": "@amxv/rust-cli-template-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.11",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test:vercel": "node --test scripts/should-build.test.mjs scripts/prepare-prebuilt.test.mjs"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@types/node": "^24.0.13",
+    "astro": "^7.2.10",
+    "typescript": "^6.0.3",
+    "zuedocs": "0.1.26"
+  }
+}
