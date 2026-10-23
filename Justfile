@@ -3,15 +3,6 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
-bootstrap *args:
-    python3 scripts/bootstrap.py {{args}}
-
-bootstrap-clean:
-    python3 scripts/cleanup.py
-
-vercel-provision:
-    node scripts/provision-vercel.mjs
-
 fmt:
     cargo fmt --all
 
