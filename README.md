@@ -14,6 +14,10 @@ Rindle is currently **macOS-only and unreleased**. The repository is ready for l
 - **Dia → Safari:** The extension sends Dia's history to a local Native Messaging host. A Rust LaunchAgent runs every three hours, adds missing URL records to Safari's history after a consistent backup, and opens Safari hidden with a **new, uniquely tagged Apple.com heartbeat**. It verifies the heartbeat's Safari generation is at least that of the injected records, sends a second harmless heartbeat if the first ran too early, and keeps Safari hidden through its idle-sync window. **No actual Dia history URL is opened in Safari.**
 - **Duplicates:** A durable SQLite ledger and destination-history checks prevent bounce-back loops, even if a URL originally came from a different iCloud device.
 
+The macOS background job runs every three hours and transfers up to **100 URLs per direction per run**, newest first. This deliberately staggers the initial history backfill rather than injecting thousands of visits into Safari at once. For a one-time manual import, use `rindle sync --limit N` (maximum 1,000).
+
+**One-time macOS permission:** The scheduled executable needs Full Disk Access to read Safari's protected `History.db`. Open **System Settings → Privacy & Security → Full Disk Access**, click **+**, use `Cmd+Shift+G` to select your installed `rindle` executable (typically `~/.cargo/bin/rindle`), and enable it. You must approve this manually; granting your Terminal or desktop agent access does **not** authorize an independent macOS LaunchAgent. Then restart the job with `launchctl kickstart -k gui/$(id -u)/xyz.rindle.sync`. `rindle status` detects failed scheduled runs and reports when this permission is missing. Full Disk Access is a broad macOS permission; grant it only if you trust the locally installed Rindle executable.
+
 No permanent server or third-party cloud service is involved. The extension does not read webpage content. Internal/private URLs, fragments, and recognized token-bearing queries are excluded. The local Safari adapter retains up to three consistent history backups.
 
 ## Install (after the first release)

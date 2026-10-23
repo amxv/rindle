@@ -23,6 +23,17 @@ rindle setup --browser dia
 
 Setup installs the native host and a macOS LaunchAgent that synchronizes every three hours. It also extracts the browser extension to `~/Library/Application Support/Rindle/extension`.
 
+### One-time background permission on macOS
+
+Because Safari history is protected, the background LaunchAgent needs **Full Disk Access** independently of your Terminal or agent application. Open **System Settings → Privacy & Security → Full Disk Access**, click **+**, press `Cmd+Shift+G`, and add the installed Rindle executable (usually `~/.cargo/bin/rindle`). Enable its permission, then run:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/xyz.rindle.sync
+rindle status
+```
+
+Rindle reports `BLOCKED` if the last scheduled run lacked Safari history access. macOS requires you to approve Full Disk Access manually; Rindle never modifies privacy permissions itself.
+
 ## 2. Load the extension in Dia
 
 1. Open `dia://extensions` or Dia's Extensions settings.
@@ -63,4 +74,4 @@ This test setup does **not** enable a recurring job. After installing the extens
 
 If Rindle displays **“Specified native messaging host not found”**, rerun `rindle setup --browser dia --no-schedule` to repair Dia's Chrome-compatible native-host registration, then reload the extension if needed. This does not launch Safari or change browser history. The shared registration also works when Chrome is configured separately.
 
-Before enabling unattended syncing, try `rindle sync --limit 3` to transfer a small batch in each direction and verify suggestions on your iPhone. The standard schedule processes up to 1,000 URLs per direction, per run.
+Before enabling unattended syncing, try `rindle sync --limit 3` to transfer a small batch in each direction and verify suggestions on your iPhone. The three-hour background schedule is intentionally bounded to **100 URLs per direction per run**, newest first. Manual `rindle sync --limit N` permits up to 1,000 URLs.

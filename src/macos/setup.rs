@@ -14,6 +14,9 @@ use std::process::Command;
 
 const SYNC_JOB: &str = "xyz.rindle.sync";
 const SYNC_INTERVAL: u32 = 3 * 60 * 60;
+// Initial iCloud uploads should remain deliberately bounded. Thousands of
+// backfilled Chromium URLs are transferred in small, deduplicated batches.
+const SYNC_BATCH_LIMIT: usize = 100;
 const MANIFEST: &str = include_str!("../../extension/manifest.json");
 const EXTENSION_FILES: [(&str, &str); 4] = [
     (
@@ -227,7 +230,7 @@ fn job_xml(binary: &Path, logfile: &Path) -> String {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>{SYNC_JOB}</string>
-<key>ProgramArguments</key><array><string>{}</string><string>sync</string></array>
+<key>ProgramArguments</key><array><string>{}</string><string>sync</string><string>--limit</string><string>{SYNC_BATCH_LIMIT}</string></array>
 <key>RunAtLoad</key><true/>
 <key>StartInterval</key><integer>{SYNC_INTERVAL}</integer>
 <key>StandardOutPath</key><string>{}</string>
@@ -289,6 +292,61 @@ fn remove_schedule() -> Result<()> {
     Ok(())
 }
 
+/// launchd is its own macOS privacy requester. Having Full Disk Access in the
+/// terminal that invoked `setup` does not grant the scheduled executable that
+/// permission. Surface failures instead of claiming a configured job is healthy.
+fn scheduled_job_health(launchctl_output: &str, recent_log: &str) -> String {
+    let exit_code = launchctl_output.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("last exit code = ")
+            .and_then(|value| value.parse::<i32>().ok())
+    });
+    if let Some(code) = exit_code
+        && code != 0
+    {
+        if recent_log.contains("Cannot open Safari history")
+            || recent_log.contains("Full Disk Access may be required")
+        {
+            return "BLOCKED: grant Full Disk Access to the scheduled Rindle executable in System Settings → Privacy & Security → Full Disk Access, then restart the job".to_owned();
+        }
+        return format!(
+            "ERROR: last scheduled run exited {code}; inspect ~/Library/Logs/Rindle/sync.log"
+        );
+    }
+    if launchctl_output
+        .lines()
+        .any(|line| line.trim() == "state = running")
+    {
+        return "running; a sync is in progress".to_owned();
+    }
+    if exit_code == Some(0) {
+        return "last scheduled run exited successfully".to_owned();
+    }
+    "registered; awaiting first completed run".to_owned()
+}
+
+fn show_schedule_health() -> Result<()> {
+    if !job_path()?.exists() {
+        return Ok(());
+    }
+    let service = format!("gui/{}/{SYNC_JOB}", uid()?);
+    let output = Command::new("launchctl")
+        .args(["print", &service])
+        .output()?;
+    if !output.status.success() {
+        println!("Background sync health: launchd could not inspect {service}");
+        return Ok(());
+    }
+    let launchd = String::from_utf8_lossy(&output.stdout);
+    let log_path = home()?.join("Library/Logs/Rindle/sync.log");
+    let log = fs::read_to_string(log_path).unwrap_or_default();
+    println!(
+        "Background sync health: {}",
+        scheduled_job_health(&launchd, &log)
+    );
+    Ok(())
+}
+
 pub fn run(browser: Browser, all: bool, no_schedule: bool) -> Result<()> {
     let binary = env::current_exe()?.canonicalize()?;
     let store = Store::open()?;
@@ -308,7 +366,16 @@ pub fn run(browser: Browser, all: bool, no_schedule: bool) -> Result<()> {
     }
     if !no_schedule {
         install_schedule(&binary)?;
-        println!("Background sync: every 3 hours via macOS launchd");
+        println!(
+            "Background sync: every 3 hours, up to {SYNC_BATCH_LIMIT} URLs each way per run via macOS launchd"
+        );
+        println!(
+            "macOS privacy: unattended Safari history access may require Full Disk Access for {}",
+            binary.display()
+        );
+        println!(
+            "Grant it under System Settings → Privacy & Security → Full Disk Access; verify with 'rindle status'."
+        );
     } else {
         remove_schedule()?;
         println!("Background schedule: not enabled (--no-schedule)");
@@ -341,11 +408,12 @@ pub fn status() -> Result<()> {
     println!(
         "Background sync: {}",
         if job_path()?.exists() {
-            "configured (3 hours)"
+            "configured (every 3 hours, max 100 URLs per direction per run)"
         } else {
             "off"
         }
     );
+    show_schedule_health()?;
     match crate::macos::safari::Safari::open() {
         Ok(safari) => {
             let (_, checkpoint) = safari.generations()?;
@@ -428,6 +496,7 @@ mod tests {
         let plist = job_xml(&exe, &dir.path().join("rindle.log"));
         assert!(plist.contains("&amp;"));
         assert!(plist.contains("<integer>10800</integer>"));
+        assert!(plist.contains("<string>--limit</string><string>100</string>"));
         Ok(())
     }
 
@@ -468,5 +537,21 @@ mod tests {
                 .any(|p| p.ends_with("Chromium/NativeMessagingHosts"))
         );
         Ok(())
+    }
+
+    #[test]
+    fn detects_launch_agent_missing_fda_instead_of_reporting_healthy_sync() {
+        let failed = "state = not running\nruns = 1\nlast exit code = 1";
+        let log = "Error: Cannot open Safari history at /Users/test/Library/Safari/History.db (macOS Full Disk Access may be required)";
+        assert!(scheduled_job_health(failed, log).contains("BLOCKED: grant Full Disk Access"));
+        assert!(scheduled_job_health(failed, "other problem").contains("exited 1"));
+        assert_eq!(
+            scheduled_job_health("state = running\nruns = 1", ""),
+            "running; a sync is in progress"
+        );
+        assert_eq!(
+            scheduled_job_health("state = not running\nlast exit code = 0", ""),
+            "last scheduled run exited successfully"
+        );
     }
 }
