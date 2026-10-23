@@ -316,7 +316,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid #6a9a73; outline-offs
 .docs-toc a:hover, .docs-sidebar a:hover { color: var(--signal); }
 .docs-index-hero__shortcut { display: flex; gap: .8rem; align-items: center; margin-top: 2.1rem; }
 .docs-index-hero__shortcut a { text-decoration: none; font-weight: 600; }
-.docs-starter { margin: 1.5rem 0 0; border-radius: 9px; background: #203f33; color: #eaf2e4; padding: 1.4rem 1.65rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.docs-starter { margin: 1.5rem auto 0; border-radius: 9px; background: #203f33; color: #eaf2e4; padding: 1.4rem 1.65rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .docs-starter__eyebrow { font: 450 .66rem var(--font-mono); color: #b6d3b4; letter-spacing: .06em; text-transform: uppercase; }
 .docs-starter strong { display: block; margin-top: .3rem; font-weight: 600; font-size: 1.25rem; letter-spacing: -.03em; }
 .docs-starter a { background: #d7e7c4; color: #173a2b; padding: .8rem 1rem; border-radius: 4px; text-decoration: none; white-space: nowrap; font-size: .78rem; font-weight: 650; }
