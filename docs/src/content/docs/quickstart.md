@@ -20,7 +20,7 @@ After the first release:
 curl -fsSL https://rindle.ashray.xyz/install.sh | sh
 ```
 
-The installer downloads and verifies the Intel/Apple Silicon CLI and a signed, notarized universal Safari helper. It installs the native host and a macOS LaunchAgent that synchronizes every three hours, and extracts the browser extension to `~/Library/Application Support/Rindle/extension`.
+The installer downloads a checksummed macOS tarball containing the Rust CLI and ad-hoc-signed, sandboxed Safari helper. It installs the native host and a macOS LaunchAgent that synchronizes every three hours, and extracts the browser extension to `~/Library/Application Support/Rindle/extension`.
 
 ### One-time Safari folder permission on macOS
 
@@ -32,7 +32,7 @@ To verify:
 rindle status
 ```
 
-The Safari status should identify the **sandboxed, folder-scoped helper**. The initial release will not ship until its Developer ID signing and Apple notarization pass the release pipeline. See [Privacy and permissions](/docs/privacy).
+The Safari status should identify the **sandboxed, folder-scoped helper**. No Developer ID or Full Disk Access is needed. Installation uses a verified command-line tarball; downloading the `.app` directly through Safari or Finder may trigger Gatekeeper. See [Privacy and permissions](/docs/privacy).
 
 ## 2. Load the extension in Dia
 
@@ -70,7 +70,7 @@ node --test extension/utils.test.mjs
 ./target/debug/rindle sync --dry-run
 ```
 
-This test setup does **not** enable a recurring job. To enable unattended sync from source, build and sign `experiments/scoped-safari`, select `~/Library/Safari` in its folder picker, and then use `rindle setup --browser dia --scoped-helper /absolute/path/to/RindleScopedProbe`. Rindle refuses to enable the legacy Full Disk Access backend without the explicit `--allow-full-disk-access` option.
+This test setup does **not** enable a recurring job. To enable unattended sync from source, build and sign `apps/scoped-safari`, select `~/Library/Safari` in its folder picker, and then use `rindle setup --browser dia --scoped-helper /absolute/path/to/RindleScopedProbe`. Rindle refuses to enable the legacy Full Disk Access backend without the explicit `--allow-full-disk-access` option.
 
 If Rindle displays **“Specified native messaging host not found”**, rerun `rindle setup --browser dia --no-schedule` to repair Dia's Chrome-compatible native-host registration, then reload the extension if needed. This does not launch Safari or change browser history. The shared registration also works when Chrome is configured separately.
 

@@ -10,12 +10,11 @@ on:
       - "Cargo.lock"
       - "rust-toolchain.toml"
       - "rustfmt.toml"
-      - "dist-workspace.toml"
       - "Justfile"
       - "src/**"
       - "tests/**"
       - "extension/**"
-      - "experiments/**"
+      - "apps/**"
       - "scripts/**"
   pull_request:
     branches: [main]
@@ -26,12 +25,11 @@ on:
       - "Cargo.lock"
       - "rust-toolchain.toml"
       - "rustfmt.toml"
-      - "dist-workspace.toml"
       - "Justfile"
       - "src/**"
       - "tests/**"
       - "extension/**"
-      - "experiments/**"
+      - "apps/**"
       - "scripts/**"
   workflow_dispatch:
 
@@ -74,15 +72,18 @@ jobs:
       - name: Extension tests
         run: node --test extension/*.test.mjs
 
-      - name: Compile restricted Safari folder-access experiment
-        run: ./experiments/scoped-safari/build.sh
+      - name: Compile sandboxed Safari helper
+        run: ./apps/scoped-safari/build.sh
 
-      - name: Validate universal scoped Safari helper archive (development only)
+      - name: Validate signed macOS release archive and installer
         run: |
-          ./scripts/package-scoped-helper.sh --development
-          (cd target/distrib && shasum -a 256 -c rindle-scoped-helper-universal.zip.sha256)
+          ./scripts/package-release.sh aarch64-apple-darwin
+          (cd target/distrib && shasum -a 256 -c rindle-aarch64-apple-darwin.tar.gz.sha256)
           mkdir -p "$RUNNER_TEMP/helper-check"
-          ditto -x -k target/distrib/rindle-scoped-helper-universal.zip "$RUNNER_TEMP/helper-check"
-          codesign --verify --strict "$RUNNER_TEMP/helper-check/ScopedSafariHelper.app"
-          lipo -archs "$RUNNER_TEMP/helper-check/ScopedSafariHelper.app/Contents/MacOS/RindleScopedProbe" | grep -q arm64
-          lipo -archs "$RUNNER_TEMP/helper-check/ScopedSafariHelper.app/Contents/MacOS/RindleScopedProbe" | grep -q x86_64
+          tar -xzf target/distrib/rindle-aarch64-apple-darwin.tar.gz -C "$RUNNER_TEMP/helper-check"
+          codesign --verify --strict "$RUNNER_TEMP/helper-check/rindle-aarch64-apple-darwin/ScopedSafariHelper.app"
+          signature=$(codesign -dv --verbose=2 "$RUNNER_TEMP/helper-check/rindle-aarch64-apple-darwin/ScopedSafariHelper.app" 2>&1)
+          [[ "$signature" == *'Signature=adhoc'* ]]
+          RINDLE_LOCAL_ARCHIVE="$GITHUB_WORKSPACE/target/distrib/rindle-aarch64-apple-darwin.tar.gz" \
+          RINDLE_INSTALL_DIR="$RUNNER_TEMP/rindle-cli" RINDLE_APP_DIR="$RUNNER_TEMP/rindle-app" \
+          RINDLE_INSTALL_SKIP_SETUP=1 sh docs/public/install.sh

@@ -3,7 +3,7 @@
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>RindleScopedProbe</string>
 <key>CFBundleIdentifier</key><string>xyz.rindle.scoped-probe</string>
-<key>CFBundleName</key><string>Rindle Scoped History Probe</string>
+<key>CFBundleName</key><string>Rindle Safari Access</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.0.1</string>
 <key>CFBundleVersion</key><string>1</string>

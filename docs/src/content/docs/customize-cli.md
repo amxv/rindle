@@ -37,7 +37,7 @@ The reverse direction also sends history records, not page loads. When necessary
 ```sh
 just check
 just docs-check
-dist plan
+just release-plan
 ```
 
 Rust tests use isolated SQLite databases, Native Messaging framing tests, and CLI process tests. Real-browser testing is still required for compatibility and final iPhone autocomplete behavior.

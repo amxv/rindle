@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 // Both distribution paths keep everything the website needs inside docs/.
-// Rust source, cargo-dist files, Swift app source and release workflows are unrelated.
+// Rust source, release scripts, Swift helper source and release workflows are unrelated.
 const relevantPaths = ['docs'];
 
 function git(args, cwd) {

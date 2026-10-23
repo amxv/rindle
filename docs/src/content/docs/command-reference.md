@@ -42,7 +42,7 @@ just check
 just extension-test
 just build
 just docs-check
-dist plan
+just release-plan
 ```
 
 Do not create a release tag until Dia's Native Messaging host and Safari iCloud autocomplete have passed end-to-end testing.

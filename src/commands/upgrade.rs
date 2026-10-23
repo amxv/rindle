@@ -149,6 +149,12 @@ fn install(version: &str, automatic: bool) -> Result<()> {
     command.arg(&path).arg("upgrade");
     command.env("CLI_UPGRADE_TARGET", &exe);
     command.env("CLI_VERSION", version);
+    if automatic {
+        // A changed ad-hoc app signature may require reselecting Safari's
+        // folder. Never hang a LaunchAgent waiting for an interactive dialog.
+        // The installer rolls back if the existing bookmark cannot be reused.
+        command.env("RINDLE_NONINTERACTIVE", "1");
+    }
     command
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())

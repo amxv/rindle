@@ -108,7 +108,8 @@ func bookmarkFile() -> URL {
     return folder.appendingPathComponent("safari-bookmark.dat")
 }
 
-func verifySavedBookmark(checkWrites: Bool = false) {
+@discardableResult
+func verifySavedBookmark(checkWrites: Bool = false) -> Bool {
     do {
         let bookmark = try Data(contentsOf: bookmarkFile())
         var stale = false
@@ -122,29 +123,32 @@ func verifySavedBookmark(checkWrites: Bool = false) {
             guard let safeFolder = exactSafariFolder(),
                 folder.resolvingSymlinksInPath().standardizedFileURL == safeFolder else {
                 logResult("WRITE CHECK: selected folder is not ~/Library/Safari; refusing write probe")
-                return
+                return false
             }
             guard works && allowed else {
                 logResult("WRITE CHECK: saved permission did not pass the read-only test")
-                return
+                return false
             }
             let writable = checkWriteWithoutTouchingHistory(folder)
             logResult("SCOPED WRITE CHECK: \(writable ? "PASS" : "FAIL")")
+            return writable
         }
+        return works && allowed && !stale
     } catch {
         logResult("Bookmark resolve FAILED: \(type(of: error)) / \(error.localizedDescription)")
+        return false
     }
 }
 
 if CommandLine.arguments.contains("--verify") || CommandLine.arguments.contains("--write-check") {
-    verifySavedBookmark(checkWrites: CommandLine.arguments.contains("--write-check"))
-    exit(0)
+    let success = verifySavedBookmark(checkWrites: CommandLine.arguments.contains("--write-check"))
+    exit(success ? 0 : 1)
 }
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
 let panel = NSOpenPanel()
-panel.message = "Select ONLY your Safari history folder. This test grants no Full Disk Access."
+panel.message = "Select your Safari history folder (~/Library/Safari). Rindle needs access only to this folder, not Full Disk Access."
 panel.prompt = "Allow selected Safari folder"
 panel.canChooseDirectories = true
 panel.canChooseFiles = false

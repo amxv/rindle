@@ -48,16 +48,19 @@ docs-build:
 docs-test:
     cd docs && bun run test:vercel
 
-dist-plan:
-    dist plan
+release-plan:
+    @echo "macOS: rindle-aarch64-apple-darwin.tar.gz + .sha256"
+    @echo "macOS: rindle-x86_64-apple-darwin.tar.gz + .sha256"
+    @echo "Installer: rindle-installer.sh (website: install.sh)"
 
-dist-generate:
-    dist generate
+release-build-local:
+    ./scripts/package-release.sh aarch64-apple-darwin
+    ./scripts/package-release.sh x86_64-apple-darwin
 
 release-tag version:
     #!/usr/bin/env bash
     set -euo pipefail
-    ./scripts/release-preflight.sh
+    ./scripts/release-preflight.sh {{version}}
     actual="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
     if [[ "$actual" != "{{version}}" ]]; then
       echo "Cargo.toml version is $actual, not {{version}}" >&2

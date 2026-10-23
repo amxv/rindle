@@ -1,127 +1,139 @@
 #!/bin/sh
-# Website-hosted installer. cargo-dist publishes and verifies release archives.
+# Rindle macOS installer: HTTPS download, SHA-256 check, tar extraction, and
+# ad-hoc-signed sandboxed Safari helper installed alongside the CLI.
+# We never disable Gatekeeper or strip quarantine attributes.
 set -eu
-if [ "$(uname -s)" != "Darwin" ]; then
-  echo 'Rindle requires macOS (Safari and iCloud history sync).' >&2
-  exit 1
-fi
-cli='rindle'
-repo='https://github.com/amxv/rindle'
+
+[ "$(uname -s)" = Darwin ] || { echo 'Rindle requires macOS.' >&2; exit 1; }
 mode=${1:-install}
-case "$mode" in install|upgrade|--check) ;; *) echo 'Usage: install.sh [upgrade|--check]' >&2; exit 2;; esac
-for command in curl sh ditto codesign spctl shasum grep open; do command -v "$command" >/dev/null 2>&1 || { echo "$command is required" >&2; exit 1; }; done
+case "$mode" in install|upgrade|--check) ;; *) echo 'Usage: install.sh [upgrade|--check]' >&2; exit 2 ;; esac
+for cmd in curl tar shasum codesign lipo install open ditto; do
+  command -v "$cmd" >/dev/null 2>&1 || { echo "Missing required macOS tool: $cmd" >&2; exit 1; }
+done
+
+repo=https://github.com/amxv/rindle
+case "$(uname -m)" in
+  arm64|aarch64) target=aarch64-apple-darwin ;;
+  x86_64) target=x86_64-apple-darwin ;;
+  *) echo 'Unsupported macOS CPU architecture.' >&2; exit 1 ;;
+esac
+
 if [ "$mode" = --check ]; then
-  printf 'Installed: '
-  if command -v "$cli" >/dev/null 2>&1; then "$cli" --version; else echo '(not installed)'; fi
+  if command -v rindle >/dev/null 2>&1; then rindle --version; else echo 'Rindle is not installed on PATH.'; fi
   curl --proto '=https' --tlsv1.2 -fsSIL -o /dev/null -w 'Latest release: %{url_effective}\n' "$repo/releases/latest"
   exit 0
 fi
 
-if [ "$mode" = upgrade ] && [ -n "${CLI_UPGRADE_TARGET:-}" ]; then
-  case "$CLI_UPGRADE_TARGET" in /*) ;; *) echo 'Upgrade target must be absolute' >&2; exit 1;; esac
-  if [ ! -f "$CLI_UPGRADE_TARGET" ] || [ -L "$CLI_UPGRADE_TARGET" ]; then
-    echo 'Upgrade requires a regular installed executable' >&2; exit 1
-  fi
-  RINDLE_INSTALL_DIR=$(dirname "$CLI_UPGRADE_TARGET")
-  export RINDLE_INSTALL_DIR
-fi
-umask 077
-stage=$(mktemp -d "${TMPDIR:-/tmp}/${cli}-install.XXXXXXXX")
-trap 'rm -rf "$stage"' EXIT HUP INT TERM
-# cargo-dist uses sha256sum for release verification. Make its verifier
-# available on macOS, where shasum is installed instead.
-if ! command -v sha256sum >/dev/null 2>&1; then
-  command -v shasum >/dev/null 2>&1 || { echo 'shasum or sha256sum is required' >&2; exit 1; }
-  printf '#!/bin/sh\nexec shasum -a 256 "$@"\n' > "$stage/sha256sum"
-  chmod 755 "$stage/sha256sum"
-  PATH="$stage:$PATH"
-  export PATH
-fi
-if [ -n "${CLI_VERSION:-}" ]; then
-  case "$CLI_VERSION" in
-    *[!0-9A-Za-z._-]*|'') echo 'Invalid upgrade version' >&2; exit 1 ;;
-  esac
-  installer_url="$repo/releases/download/v${CLI_VERSION}/${cli}-installer.sh"
-else
-  installer_url="$repo/releases/latest/download/${cli}-installer.sh"
-fi
-curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
-  "$installer_url" -o "$stage/installer.sh"
-sh "$stage/installer.sh"
-
-# The Rust binary alone cannot read protected Safari history without an
-# overbroad Full Disk Access grant. Every published installer MUST include the
-# separately notarized, sandboxed helper. Fail closed if that asset is absent.
 if [ -n "${CLI_UPGRADE_TARGET:-}" ]; then
-  rindle_bin=$CLI_UPGRADE_TARGET
-elif [ -n "${RINDLE_INSTALL_DIR:-}" ]; then
-  rindle_bin=$RINDLE_INSTALL_DIR/rindle
-else
-  rindle_bin=${CARGO_HOME:-"$HOME/.cargo"}/bin/rindle
+  case "$CLI_UPGRADE_TARGET" in /*) ;; *) echo 'Upgrade target must be an absolute path.' >&2; exit 1 ;; esac
+  [ -f "$CLI_UPGRADE_TARGET" ] && [ ! -L "$CLI_UPGRADE_TARGET" ] || { echo 'Invalid existing Rindle executable.' >&2; exit 1; }
+  RINDLE_INSTALL_DIR=$(dirname "$CLI_UPGRADE_TARGET")
 fi
-if [ ! -x "$rindle_bin" ]; then
-  echo "The Rindle executable was not found at $rindle_bin" >&2
-  exit 1
-fi
-version=$("$rindle_bin" --version)
-case "$version" in 'rindle '*) version=${version#rindle } ;; *) echo 'Invalid installed Rindle version' >&2; exit 1 ;; esac
-if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-  echo 'Refusing to download a helper for an invalid version' >&2
-  exit 1
-fi
-base_url="$repo/releases/download/v$version"
-archive=rindle-scoped-helper-universal.zip
-curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$base_url/$archive" -o "$stage/$archive"
-curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$base_url/$archive.sha256" -o "$stage/$archive.sha256"
-(cd "$stage" && shasum -a 256 -c "$archive.sha256")
+install_dir=${RINDLE_INSTALL_DIR:-"$HOME/.local/bin"}
+app_dir=${RINDLE_APP_DIR:-"$HOME/Library/Application Support/Rindle"}
+case "$install_dir" in /*) ;; *) echo 'Install directory must be absolute.' >&2; exit 1 ;; esac
+case "$app_dir" in /*) ;; *) echo 'App directory must be absolute.' >&2; exit 1 ;; esac
 
-mkdir "$stage/extracted"
-ditto -x -k "$stage/$archive" "$stage/extracted"
-helper="$stage/extracted/ScopedSafariHelper.app"
-if [ ! -d "$helper" ] || [ -L "$helper" ]; then
-  echo 'The Rindle scoped Safari helper archive is invalid' >&2
-  exit 1
-fi
-codesign --verify --strict --deep "$helper"
-if ! codesign -dv --verbose=3 "$helper" 2>&1 | grep -q '^Authority=Developer ID Application:'; then
-  echo 'Refusing to install a helper without a real Developer ID Application signature' >&2
-  exit 1
-fi
-spctl --assess --type execute "$helper" || {
-  echo 'The scoped Safari helper failed macOS Gatekeeper assessment' >&2
-  exit 1
+umask 077
+stage=$(mktemp -d "${TMPDIR:-/tmp}/rindle-install.XXXXXXXX")
+cli_target="$install_dir/rindle"
+helper_target="$app_dir/ScopedSafariHelper.app"
+cli_next="$install_dir/.rindle-install.$$"
+cli_old="$install_dir/.rindle-previous.$$"
+helper_next="$app_dir/.ScopedSafariHelper.new.$$"
+helper_old="$app_dir/.ScopedSafariHelper.old.$$"
+installed_cli=0
+installed_helper=0
+
+finish() {
+  result=$?
+  if [ "$result" -ne 0 ]; then
+    echo 'Rindle installation did not complete; restoring the previous CLI and helper.' >&2
+    if [ "$installed_cli" -eq 1 ]; then rm -f "$cli_target"; fi
+    if [ "$installed_helper" -eq 1 ]; then rm -rf "$helper_target"; fi
+    if [ -f "$cli_old" ]; then mv "$cli_old" "$cli_target"; fi
+    if [ -d "$helper_old" ]; then mv "$helper_old" "$helper_target"; fi
+  else
+    rm -f "$cli_old"
+    rm -rf "$helper_old"
+  fi
+  rm -f "$cli_next"
+  rm -rf "$helper_next" "$stage"
 }
+trap finish EXIT
 
-app_root="$HOME/Library/Application Support/Rindle"
-mkdir -p "$app_root"
-chmod 700 "$app_root"
-destination="$app_root/ScopedSafariHelper.app"
-next="$app_root/.ScopedSafariHelper.app.new.$$"
-rollback="$app_root/.ScopedSafariHelper.app.old.$$"
-if [ -L "$destination" ] || [ -e "$next" ] || [ -e "$rollback" ]; then
-  echo 'Refusing to overwrite an unusual existing Rindle helper path' >&2
-  exit 1
+archive_name="rindle-${target}.tar.gz"
+archive="$stage/$archive_name"
+checksum="$stage/$archive_name.sha256"
+if [ -n "${RINDLE_LOCAL_ARCHIVE:-}" ]; then
+  # Explicit local QA mode. Standard installs always use GitHub HTTPS assets.
+  cp "$RINDLE_LOCAL_ARCHIVE" "$archive"
+  cp "$RINDLE_LOCAL_ARCHIVE.sha256" "$checksum"
+else
+  if [ -n "${CLI_VERSION:-}" ]; then
+    case "$CLI_VERSION" in *[!0-9.]*|'') echo 'Unsupported release version.' >&2; exit 1 ;; esac
+    release_base="$repo/releases/download/v$CLI_VERSION"
+  else
+    release_base="$repo/releases/latest/download"
+  fi
+  curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$release_base/$archive_name" -o "$archive"
+  curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$release_base/$archive_name.sha256" -o "$checksum"
 fi
-ditto "$helper" "$next"
-codesign --verify --strict --deep "$next"
-if [ -d "$destination" ]; then mv "$destination" "$rollback"; fi
-if ! mv "$next" "$destination"; then
-  if [ -d "$rollback" ]; then mv "$rollback" "$destination"; fi
-  echo 'Could not install the scoped Safari helper' >&2
-  exit 1
-fi
-rm -rf "$rollback"
 
-scoped_bin="$destination/Contents/MacOS/RindleScopedProbe"
-# If this is an update from an identically signed build, the user's saved
-# bookmark should work immediately. Otherwise show the standard one-time
-# folder chooser, *only* for ~/Library/Safari (never Full Disk Access).
-if ! RINDLE_SCOPED_SAFARI_HELPER="$scoped_bin" "$rindle_bin" status 2>/dev/null \
-  | grep -q 'Safari history: accessible via sandboxed, folder-scoped helper'; then
-  printf '\nOne-time macOS permission: please choose your Safari history folder.\n'
-  printf 'Select ~/Library/Safari in the system folder picker. Rindle will not request Full Disk Access.\n'
-  open -W "$destination"
+(cd "$stage" && shasum -a 256 -c "$archive_name.sha256")
+tar -tzf "$archive" | awk -v top="rindle-${target}" '
+  /^\// || /(^|\/)\.\.($|\/)/ { bad=1 }
+  $0 != top && index($0, top "/") != 1 { bad=1 }
+  END { exit bad ? 1 : 0 }
+' || { echo 'Release archive contains an unsafe path.' >&2; exit 1; }
+mkdir "$stage/extract"
+tar -xzf "$archive" -C "$stage/extract"
+source_dir="$stage/extract/rindle-${target}"
+source_cli="$source_dir/rindle"
+source_app="$source_dir/ScopedSafariHelper.app"
+[ -f "$source_cli" ] && [ ! -L "$source_cli" ] && [ -x "$source_cli" ] || { echo 'Release is missing the Rindle CLI.' >&2; exit 1; }
+[ -d "$source_app" ] && [ ! -L "$source_app" ] || { echo 'Release is missing the scoped Safari app.' >&2; exit 1; }
+[ -z "$(find "$source_dir" -type l -print -quit)" ] || { echo 'Release contains unexpected symlinks.' >&2; exit 1; }
+codesign --verify --strict --deep "$source_app"
+codesign -dv --verbose=2 "$source_app" 2>&1 | grep -q 'Signature=adhoc' || { echo 'Release app must be ad-hoc signed.' >&2; exit 1; }
+case "$target" in aarch64-apple-darwin) arch=arm64 ;; *) arch=x86_64 ;; esac
+lipo "$source_cli" -verify_arch "$arch"
+lipo "$source_app/Contents/MacOS/RindleScopedProbe" -verify_arch "$arch"
+
+mkdir -p "$install_dir" "$app_dir"
+[ ! -L "$install_dir" ] && [ ! -L "$app_dir" ] || { echo 'Refusing symlinked installation directories.' >&2; exit 1; }
+chmod 700 "$app_dir"
+for path in "$cli_next" "$cli_old" "$helper_next" "$helper_old"; do
+  [ ! -e "$path" ] || { echo "Refusing existing temporary install path: $path" >&2; exit 1; }
+done
+[ ! -L "$cli_target" ] && [ ! -L "$helper_target" ] || { echo 'Refusing to replace a symlinked Rindle installation.' >&2; exit 1; }
+install -m 0755 "$source_cli" "$cli_next"
+ditto "$source_app" "$helper_next"
+codesign --verify --strict --deep "$helper_next"
+
+if [ -f "$cli_target" ]; then mv "$cli_target" "$cli_old"; fi
+mv "$cli_next" "$cli_target"
+installed_cli=1
+if [ -d "$helper_target" ]; then mv "$helper_target" "$helper_old"; fi
+mv "$helper_next" "$helper_target"
+installed_helper=1
+
+if [ "${RINDLE_INSTALL_SKIP_SETUP:-0}" != 1 ]; then
+  helper_bin="$helper_target/Contents/MacOS/RindleScopedProbe"
+  if ! "$helper_bin" --verify >/dev/null 2>&1; then
+    if [ "${RINDLE_NONINTERACTIVE:-0}" = 1 ]; then
+      echo 'Saved Safari permission needs renewal; cannot prompt during an unattended upgrade.' >&2
+      exit 1
+    fi
+    echo 'Select ~/Library/Safari in the Rindle Safari Access folder picker.'
+    open -W "$helper_target"
+    "$helper_bin" --verify || { echo 'Safari folder permission was not granted.' >&2; exit 1; }
+  fi
+  "$cli_target" setup --browser dia --scoped-helper "$helper_bin"
 fi
-"$rindle_bin" setup --browser dia --scoped-helper "$scoped_bin"
-printf '\nRindle is installed with the scoped Safari helper.\n'
-printf 'Load the extension in Dia using the directory shown by setup.\n'
+
+echo "Rindle installed: $cli_target"
+echo "Safari helper installed: $helper_target"
+if [ "${RINDLE_INSTALL_SKIP_SETUP:-0}" != 1 ]; then
+  echo 'Load the unpacked browser extension from ~/Library/Application Support/Rindle/extension.'
+fi

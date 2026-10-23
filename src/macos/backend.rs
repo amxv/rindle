@@ -1,7 +1,7 @@
-//! Safari history backend selection. The signed, sandboxed Swift process is an
-//! opt-in experimental backend until its packaging and stable Developer ID
-//! signing are finished. It owns exactly one security-scoped Safari folder.
-//! The fallback is the existing Rust SQLite adapter (requiring FDA for launchd).
+//! Safari history backend selection. The sandboxed, ad-hoc-signed Swift helper
+//! is the default for unattended sync. Its security-scoped bookmark authorizes
+//! only the user's Safari history folder. Direct SQLite access is retained for
+//! explicit legacy opt-in and requires Full Disk Access under launchd.
 use crate::macos::safari;
 use crate::state::OutboundUrl;
 use anyhow::{Context, Result, bail};

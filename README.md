@@ -14,7 +14,7 @@ Rindle is currently **macOS-only and unreleased**. The repository is ready for l
 
 The old direct SQLite backend is still available **only with explicit `rindle setup --allow-full-disk-access`** for advanced users. FDA is broad: it could expose unrelated private Mail, Messages, and other app data. It is not an appropriate default for a history-sync tool. If you previously granted it to Rindle, revoke that grant in System Settings after `rindle status` confirms the scoped backend is healthy.
 
-The scoped helper has passed real SQLite read, write, rollback, backup, and one-entry iCloud-to-iPhone tests. An actual unattended Rindle LaunchAgent has also completed its three-hour batch using the saved folder permission. The public installer will ship this helper with a stable Developer ID signature and notarization; the first release remains blocked until those Apple signing credentials are configured.
+The scoped helper has passed real SQLite read, write, rollback, backup, and one-entry iCloud-to-iPhone tests. An unattended Rindle LaunchAgent has also completed a three-hour sync batch using the saved folder permission. **No paid Apple Developer ID or Full Disk Access is required.** Rindle ships an ad-hoc-signed sandboxed `.app` alongside the CLI in a SHA-256-verified release archive, installed through `curl` and `tar`. That command-line path does not normally apply browser-download quarantine; downloading the `.app` through a browser may still trigger Gatekeeper. Rindle never disables Gatekeeper or removes quarantine attributes.
 
 ## How it works
 
@@ -34,7 +34,7 @@ No permanent server or third-party cloud service is involved. The extension does
 curl -fsSL https://rindle.ashray.xyz/install.sh | sh
 ```
 
-The installer downloads a checksummed, Developer ID-signed and notarized universal Swift helper, installs the CLI, requests access to only `~/Library/Safari`, and registers the three-hour LaunchAgent. Enable Safari under iCloud on both Mac and iPhone. Open `dia://extensions`, enable Developer mode, choose **Load unpacked**, and select `~/Library/Application Support/Rindle/extension`. This is a one-time manual browser step. Once loaded, the extension will keep catching up automatically when Dia is running.
+The installer downloads a SHA-256-verified archive containing the matching architecture's Rust CLI and ad-hoc-signed Swift helper, installs both into user-writable directories, requests access to only `~/Library/Safari`, and registers the three-hour LaunchAgent. Enable Safari under iCloud on both Mac and iPhone. Open `dia://extensions`, enable Developer mode, choose **Load unpacked**, and select `~/Library/Application Support/Rindle/extension`. This is a one-time manual browser step. Once loaded, the extension will keep catching up automatically when Dia is running.
 
 **No release has been published yet**, so the installer cannot download Rindle until the first tagged GitHub Release.
 
@@ -53,7 +53,7 @@ node --test extension/utils.test.mjs
 ./target/debug/rindle sync --dry-run
 ```
 
-Load the unpacked extension and click **Sync now** from its popup, then confirm `rindle status` says Dia connected. To enable unattended three-hour sync from a source checkout, first build/sign the sandboxed helper under `experiments/scoped-safari`, authorize the Safari folder using its macOS folder picker, and run `rindle setup --browser dia --scoped-helper /absolute/path/to/RindleScopedProbe`. Rindle will refuse to silently schedule the legacy Full Disk Access backend.
+Load the unpacked extension and click **Sync now** from its popup, then confirm `rindle status` says Dia connected. To enable unattended three-hour sync from a source checkout, first build/sign the sandboxed helper under `apps/scoped-safari`, authorize the Safari folder using its macOS folder picker, and run `rindle setup --browser dia --scoped-helper /absolute/path/to/RindleScopedProbe`. Rindle will refuse to silently schedule the legacy Full Disk Access backend.
 
 If Dia says **“Specified native messaging host not found”**, run `rindle setup --browser dia --no-schedule` again. Rindle installs its native host in **Google Chrome's host directory**, which Dia uses according to AdGuard's browser compatibility registry, as well as Dia and Chromium fallback locations. Reload the unpacked extension if needed. `rindle status` reports host registrations and whether Dia has connected. The Google Chrome and Chromium paths share a browser-aware helper, so configuring Chrome later won't disable Dia.
 
@@ -85,14 +85,15 @@ Load the same unpacked extension from `chrome://extensions` or `edge://extension
 | `rindle upgrade [--check]` | Update the CLI from GitHub Releases after the first release |
 | `rindle auto-update on\|off\|status` | Optional daily CLI upgrades, separate from history sync |
 
-The Rust binary embeds the browser extension and Native Messaging host. The installer additionally downloads a separately signed/notarized universal Swift helper. Node.js and Cargo are not required after installation.
+The Rust binary embeds the browser extension and Native Messaging host. Each macOS tarball also contains the matching ad-hoc-signed, sandboxed Swift helper. Node.js and Cargo are not required after installation.
 
 ## Development and releases
 
 ```sh
 just check
 just docs-check
-dist plan
+just release-plan
+just release-build-local
 ```
 
-The `cargo-dist` automation builds Intel and Apple Silicon macOS CLI installers. A required pre-host job builds, signs, notarizes, and attaches the universal sandboxed helper and its checksum. No release will be tagged until the Apple Developer ID/notarization secrets are configured and the combined installer passes checks. Apache-2.0 license.
+The [release workflow](.github/workflows/release.yml) builds two checksummed GitHub Release tarballs, one each for Apple Silicon and Intel macOS, containing the CLI and ad-hoc-signed helper. A `workflow_dispatch` smoke test verifies both architectures and the user-space installer before tagging. No Apple Developer ID credentials, notarization, Gatekeeper disabling, or quarantine removal. Apache-2.0 license.
