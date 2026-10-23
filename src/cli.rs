@@ -47,7 +47,7 @@ pub enum Command {
         /// Show proposed changes without writing browser databases or launching Safari.
         #[arg(long)]
         dry_run: bool,
-        /// Maximum new Chromium URLs to import into Safari this run (1-1000).
+        /// Maximum URLs to transfer per direction this run (1-1000).
         #[arg(long, default_value_t = 1000)]
         limit: usize,
     },
@@ -58,8 +58,10 @@ pub enum Command {
     /// Native Messaging host for the Chromium extension (browser-managed process).
     #[command(hide = true)]
     Host {
+        /// Dedicated browser registrations verify the claimed browser;
+        /// shared Chromium host locations rely on the browser in the request.
         #[arg(long, value_enum)]
-        browser: Browser,
+        browser: Option<Browser>,
         #[arg(hide = true, trailing_var_arg = true, allow_hyphen_values = true)]
         browser_arguments: Vec<String>,
     },

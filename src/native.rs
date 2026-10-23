@@ -30,17 +30,22 @@ pub struct Response {
     import: Vec<QueuedUrl>,
 }
 
-pub fn exchange(store: &mut Store, expected: Browser, request: Request) -> Result<Response> {
-    if request.version != 1 || request.browser != expected {
+pub fn exchange(
+    store: &mut Store,
+    expected: Option<Browser>,
+    request: Request,
+) -> Result<Response> {
+    if request.version != 1 || expected.is_some_and(|browser| browser != request.browser) {
         bail!("Unsupported Native Messaging protocol or browser mismatch")
     }
-    if !store.has_browser(expected)? {
-        bail!("Run 'rindle setup --browser {}' first", expected.as_str())
+    let browser = request.browser;
+    if !store.has_browser(browser)? {
+        bail!("Run 'rindle setup --browser {}' first", browser.as_str())
     }
-    let received = store.ingest(expected, &request.visits)?;
-    let acknowledged = store.acknowledge(expected, &request.ack)?;
-    let to_import = store.next_for_browser(expected, 100)?;
-    store.touch(expected)?;
+    let received = store.ingest(browser, &request.visits)?;
+    let acknowledged = store.acknowledge(browser, &request.ack)?;
+    let to_import = store.next_for_browser(browser, 100)?;
+    store.touch(browser)?;
     Ok(Response {
         ok: true,
         received,
@@ -75,7 +80,7 @@ fn write_message(writer: &mut impl Write, data: &[u8]) -> Result<()> {
     Ok(())
 }
 
-pub fn serve(browser: Browser, browser_arguments: &[String]) -> Result<()> {
+pub fn serve(browser: Option<Browser>, browser_arguments: &[String]) -> Result<()> {
     // Chrome supplies the sender extension origin as the host's first argument.
     // Do not trust a caller merely because it knows our host's filesystem path.
     let expected = format!("chrome-extension://{EXTENSION_ID}/");
@@ -118,11 +123,13 @@ mod tests {
         store.enqueue_remote(&["https://example.org/a".to_owned()])?;
         let message = r#"{"version":1,"browser":"dia","visits":[{"url":"https://example.com/","title":"Test","lastVisitTime":1792770000000}]}"#;
         let request: Request = serde_json::from_str(message)?;
-        let response = exchange(&mut store, Browser::Dia, request)?;
+        let response = exchange(&mut store, Some(Browser::Dia), request)?;
         assert_eq!(response.received, 1);
         assert_eq!(response.import.len(), 1);
         let wrong: Request = serde_json::from_str(message)?;
-        assert!(exchange(&mut store, Browser::Edge, wrong).is_err());
+        assert!(exchange(&mut store, Some(Browser::Edge), wrong).is_err());
+        let shared: Request = serde_json::from_str(message)?;
+        assert!(exchange(&mut store, None, shared).is_ok());
         Ok(())
     }
 }

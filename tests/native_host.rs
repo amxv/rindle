@@ -35,16 +35,19 @@ fn setup_and_native_host_round_trip_without_touching_real_browsers() -> Result<(
         .join("Library/Application Support/Chromium/NativeMessagingHosts/xyz.rindle.history.json");
     let fallback_manifest: serde_json::Value = serde_json::from_slice(&fs::read(&fallback)?)?;
     ensure!(
-        fallback_manifest == contents,
-        "Chromium fallback registration differs from Dia"
+        fallback_manifest["path"] == data.join("native-host-shared").to_string_lossy().as_ref()
     );
+    ensure!(contents["path"] == data.join("native-host-dia").to_string_lossy().as_ref());
     ensure!(data.join("extension/background.js").exists());
     ensure!(data.join("extension/manifest.json").exists());
+    let google_manifest = home.join(
+        "Library/Application Support/Google/Chrome/NativeMessagingHosts/xyz.rindle.history.json",
+    );
+    ensure!(google_manifest.exists());
+    let google_config: serde_json::Value = serde_json::from_slice(&fs::read(&google_manifest)?)?;
     ensure!(
-        home.join(
-            "Library/Application Support/Google/Chrome/NativeMessagingHosts/xyz.rindle.history.json"
-        )
-        .exists()
+        google_config == fallback_manifest,
+        "Dia and Chrome must use the same shared host"
     );
     ensure!(
         home.join(
@@ -114,6 +117,61 @@ fn setup_and_native_host_round_trip_without_touching_real_browsers() -> Result<(
         .env("RINDLE_HOME", &data)
         .output()?;
     ensure!(!unauthorized.status.success());
+
+    // The exact same shared executable dispatches both Dia and Chrome requests
+    // when both are installed. Registration order must not break either one.
+    for browser in ["dia", "chrome"] {
+        let mut child = Command::new(google_config["path"].as_str().unwrap())
+            .arg(format!("chrome-extension://{EXTENSION_ID}/"))
+            .env("HOME", &home)
+            .env("RINDLE_HOME", &data)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "version": 1, "browser": browser, "visits": [], "ack": []
+        }))?;
+        {
+            let mut stdin = child.stdin.take().unwrap();
+            stdin.write_all(&(bytes.len() as u32).to_ne_bytes())?;
+            stdin.write_all(&bytes)?;
+        }
+        let output = child.wait_with_output()?;
+        ensure!(
+            output.status.success(),
+            "shared host rejected {browser}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let result: serde_json::Value = serde_json::from_slice(&output.stdout[4..])?;
+        ensure!(result["ok"] == true);
+    }
+    Ok(())
+}
+
+#[test]
+fn installing_chrome_after_dia_does_not_replace_the_shared_host_with_a_chrome_only_host()
+-> Result<()> {
+    let root = tempfile::tempdir()?;
+    let home = root.path().join("home");
+    let data = root.path().join("rindle");
+    fs::create_dir_all(&home)?;
+    let exe = env!("CARGO_BIN_EXE_rindle");
+    for browser in ["dia", "chrome", "dia"] {
+        let output = Command::new(exe)
+            .args(["setup", "--browser", browser, "--no-schedule"])
+            .env("HOME", &home)
+            .env("RINDLE_HOME", &data)
+            .output()?;
+        ensure!(
+            output.status.success(),
+            "setup {browser}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let manifest = home.join("Library/Application Support/Google/Chrome/NativeMessagingHosts/xyz.rindle.history.json");
+        let contents: serde_json::Value = serde_json::from_slice(&fs::read(&manifest)?)?;
+        ensure!(contents["path"] == data.join("native-host-shared").to_string_lossy().as_ref());
+    }
     Ok(())
 }
 

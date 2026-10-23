@@ -4,6 +4,7 @@ use crate::state::{self, OutboundUrl};
 use crate::urls;
 use anyhow::{Context, Result, bail};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -77,6 +78,26 @@ fn validate_schema(db: &Connection) -> Result<()> {
 }
 
 impl Safari {
+    /// Poll iCloud history's upload checkpoint without acquiring a write
+    /// connection or running an expensive integrity check against Safari's
+    /// actively syncing database. Writers are validated separately.
+    pub fn synced_generation_read_only() -> Result<i64> {
+        let path = database_path()?;
+        Self::synced_generation_at(&path)
+    }
+
+    fn synced_generation_at(path: &Path) -> Result<i64> {
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .context("Cannot read Safari history sync checkpoint")?;
+        conn.busy_timeout(Duration::from_secs(2))?;
+        let value = conn.query_row(
+            "SELECT CAST(value AS INTEGER) FROM metadata WHERE key='last_synced_generation'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )?;
+        Ok(value)
+    }
+
     pub fn open() -> Result<Self> {
         Self::open_at(&database_path()?)
     }
@@ -121,17 +142,19 @@ impl Safari {
     /// Incoming from iCloud: any remote device, not uniquely identifiable as iPhone.
     pub fn remote_urls(&self) -> Result<Vec<String>> {
         let mut stmt = self.db.prepare(
-            "SELECT DISTINCT i.url FROM history_items i
-             JOIN history_visits v ON v.history_item=i.id WHERE v.origin=1",
+            "SELECT i.url FROM history_items i
+             JOIN history_visits v ON v.history_item=i.id WHERE v.origin=1
+             GROUP BY i.id ORDER BY MAX(v.visit_time) DESC",
         )?;
         let mut result = Vec::new();
+        let mut seen = HashSet::new();
         for url in stmt.query_map([], |r| r.get::<_, String>(0))? {
-            if let Some(url) = urls::clean(&url?) {
+            if let Some(url) = urls::clean(&url?)
+                && seen.insert(url.clone())
+            {
                 result.push(url);
             }
         }
-        result.sort();
-        result.dedup();
         Ok(result)
     }
 
@@ -270,6 +293,7 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("History.db");
         fixture(&path)?;
+        assert_eq!(Safari::synced_generation_at(&path)?, 99);
         let mut safari = Safari::open_at(&path)?;
         assert_eq!(safari.remote_urls()?, vec!["https://from-iphone.example/a"]);
         let items = vec![
@@ -302,6 +326,7 @@ mod tests {
             |r| r.get(0),
         )?;
         assert_eq!(origin, 0);
+        assert_eq!(Safari::synced_generation_at(&path)?, 99);
         assert_eq!(fs::read_dir(dir.path().join("backups"))?.count(), 1);
         Ok(())
     }

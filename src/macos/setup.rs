@@ -38,9 +38,12 @@ fn home() -> Result<PathBuf> {
 fn browser_paths(browser: Browser) -> Result<Vec<PathBuf>> {
     let dir = home()?.join("Library/Application Support");
     Ok(match browser {
-        // Chromium forks vary in which user-data root they consult. Register
-        // both Dia roots with the same constrained, per-browser host wrapper.
+        // AdGuard's browser compatibility registry maps Dia's native host
+        // lookup to Google Chrome's registration directory (even though
+        // Dia's profile data lives in Dia/User Data). Keep the Dia and
+        // Chromium directories for other ArcCore versions.
         Browser::Dia => vec![
+            dir.join("Google/Chrome/NativeMessagingHosts"),
             dir.join("Dia/User Data/NativeMessagingHosts"),
             dir.join("Dia/NativeMessagingHosts"),
             // Dia uses ArcCore, a Chromium fork. Some builds resolve native
@@ -123,12 +126,33 @@ fn escape_xml(input: &str) -> String {
         .replace('\'', "&apos;")
 }
 
-fn host_wrapper(binary: &Path, browser: Browser) -> String {
+fn host_wrapper(binary: &Path, browser: Option<Browser>) -> String {
+    let browser_flag = browser
+        .map(|browser| format!(" --browser {}", browser.as_str()))
+        .unwrap_or_default();
     format!(
-        "#!/bin/sh\nexec {} host --browser {} \"$@\"\n",
+        "#!/bin/sh\nexec {} host{} \"$@\"\n",
         shell_quote(&binary.to_string_lossy()),
-        browser.as_str(),
+        browser_flag,
     )
+}
+
+/// Dia and Chrome both read Google's Chrome NativeMessagingHosts directory.
+/// An unbound host at these shared paths dispatches solely to registered
+/// Rindle browser identities sent by the allowlisted extension, so installing
+/// Chrome after Dia (or vice versa) cannot silently break the other browser.
+fn shared_host_path(dir: &Path) -> bool {
+    dir.ends_with("Google/Chrome/NativeMessagingHosts")
+        || dir.ends_with("Chromium/NativeMessagingHosts")
+}
+
+fn host_path_for(browser: Browser, dir: &Path) -> Result<PathBuf> {
+    let name = if shared_host_path(dir) {
+        "native-host-shared".to_string()
+    } else {
+        format!("native-host-{}", browser.as_str())
+    };
+    Ok(state::app_dir()?.join(name))
 }
 
 fn host_manifest(wrapper: &Path) -> Result<Vec<u8>> {
@@ -162,6 +186,7 @@ fn registered_host_count(browser: Browser) -> Result<(usize, usize)> {
             continue;
         }
         if let Some(target) = manifest["path"].as_str()
+            && Path::new(target) == host_path_for(browser, dir)?.as_path()
             && let Ok(meta) = fs::metadata(target)
             && meta.is_file()
             && meta.permissions().mode() & 0o100 != 0
@@ -174,11 +199,18 @@ fn registered_host_count(browser: Browser) -> Result<(usize, usize)> {
 
 fn register_host(browser: Browser, binary: &Path) -> Result<()> {
     let wrapper = state::app_dir()?.join(format!("native-host-{}", browser.as_str()));
-    write_file(&wrapper, host_wrapper(binary, browser).as_bytes(), true)?;
+    write_file(
+        &wrapper,
+        host_wrapper(binary, Some(browser)).as_bytes(),
+        true,
+    )?;
+    let shared = state::app_dir()?.join("native-host-shared");
+    write_file(&shared, host_wrapper(binary, None).as_bytes(), true)?;
     for path in browser_paths(browser)? {
+        let active_wrapper = host_path_for(browser, &path)?;
         write_file(
             &path.join(format!("{HOST_NAME}.json")),
-            &host_manifest(&wrapper)?,
+            &host_manifest(&active_wrapper)?,
             false,
         )?;
     }
@@ -359,6 +391,10 @@ pub fn uninstall() -> Result<()> {
             fs::remove_file(wrapper)?;
         }
     }
+    let shared = state::app_dir()?.join("native-host-shared");
+    if shared.is_file() {
+        fs::remove_file(shared)?;
+    }
     Store::open()?.disable_all()?;
     println!("Removed Rindle launchd sync and native host registrations.");
     println!(
@@ -375,10 +411,13 @@ mod tests {
     fn native_manifest_and_job_are_constrained() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let exe = dir.path().join("rindle 'cli' & test");
-        let wrapper = host_wrapper(&exe, Browser::Dia);
+        let wrapper = host_wrapper(&exe, Some(Browser::Dia));
         assert!(wrapper.contains("exec '/"));
         assert!(wrapper.contains("'\\''"));
         assert!(wrapper.contains("--browser dia \"$@\""));
+        let shared = host_wrapper(&exe, None);
+        assert!(shared.contains("host \"$@\""));
+        assert!(!shared.contains("--browser"));
         let parsed: Value = serde_json::from_slice(&host_manifest(&exe)?)?;
         assert_eq!(
             parsed["allowed_origins"][0],
@@ -405,7 +444,12 @@ mod tests {
     #[test]
     fn dia_registration_uses_its_native_and_chromium_fallback_directories() -> Result<()> {
         let locations = browser_paths(Browser::Dia)?;
-        assert_eq!(locations.len(), 3);
+        assert_eq!(locations.len(), 4);
+        assert!(
+            locations
+                .iter()
+                .any(|p| p.ends_with("Google/Chrome/NativeMessagingHosts"))
+        );
         assert!(
             locations
                 .iter()

@@ -134,9 +134,8 @@ end tell"#;
 fn wait_for_checkpoint(generation: i64) -> Result<bool> {
     let start = Instant::now();
     while start.elapsed() < MAX_SYNC_WAIT {
-        thread::sleep(Duration::from_secs(2));
-        let safari = safari::Safari::open()?;
-        if safari.generations()?.1 >= generation {
+        thread::sleep(Duration::from_secs(5));
+        if safari::Safari::synced_generation_read_only().is_ok_and(|last| last >= generation) {
             return Ok(true);
         }
     }
@@ -158,8 +157,9 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         let remote = safari.remote_urls()?;
         let outbound = store.pending_outbound(limit)?;
         println!(
-            "Dry run: {} Safari iCloud URLs visible, {} Chromium URLs eligible for Safari import (first {}), targets: {}",
+            "Dry run: {} Safari iCloud URLs visible (up to {} newest per browser will be queued), {} Chromium URLs eligible for Safari import (up to {}), targets: {}",
             remote.len(),
+            limit,
             outbound.len(),
             limit,
             targets.join(", ")
@@ -174,7 +174,7 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
     setup::refresh_if_present()?;
     let mut safari = safari::Safari::open()?;
     let remote = safari.remote_urls()?;
-    let mut queued = store.enqueue_remote(&remote)?;
+    let mut queued = store.enqueue_remote(&remote.into_iter().take(limit).collect::<Vec<_>>())?;
     let outbound = store.pending_outbound(limit)?;
 
     let mut inserted = 0;
@@ -227,7 +227,7 @@ pub fn run(dry_run: bool, limit: usize) -> Result<()> {
         // Safari's launch pulls new iCloud history into the local SQLite store.
         // Stage the refreshed records after the fetch, not only before launch.
         let refreshed = safari::Safari::open()?.remote_urls()?;
-        queued += store.enqueue_remote(&refreshed)?;
+        queued += store.enqueue_remote(&refreshed.into_iter().take(limit).collect::<Vec<_>>())?;
     }
     println!("Safari → browsers: {queued} newly queued after iCloud refresh.");
     Ok(())
