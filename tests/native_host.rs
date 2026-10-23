@@ -253,3 +253,26 @@ fn dry_run_reads_an_isolated_safari_history_without_modifying_it() -> Result<()>
     );
     Ok(())
 }
+
+#[test]
+fn unattended_setup_refuses_unscoped_full_disk_access_by_default() -> Result<()> {
+    let root = tempfile::tempdir()?;
+    let home = root.path().join("home");
+    let state = root.path().join("state");
+    fs::create_dir_all(&home)?;
+    let exe = env!("CARGO_BIN_EXE_rindle");
+    let attempted = Command::new(exe)
+        .args(["setup", "--browser", "dia"])
+        .env("HOME", &home)
+        .env("RINDLE_HOME", &state)
+        .output()?;
+    ensure!(!attempted.status.success());
+    ensure!(String::from_utf8(attempted.stderr)?.contains("--allow-full-disk-access"));
+    ensure!(
+        !home
+            .join("Library/LaunchAgents/xyz.rindle.sync.plist")
+            .exists()
+    );
+    ensure!(!state.join("state.sqlite").exists());
+    Ok(())
+}

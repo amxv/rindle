@@ -16,7 +16,10 @@ const MAX_SYNC_WAIT: Duration = Duration::from_secs(150);
 // Safari's Cloud History idle-sync delay is about 90 seconds on tested macOS.
 // An early local checkpoint is not an iCloud delivery acknowledgment.
 const MIN_IDLE_AFTER_HEARTBEAT: Duration = Duration::from_secs(110);
-const ICLOUD_FETCH_WARMUP: Duration = Duration::from_secs(15);
+// iCloud History pull is asynchronous; a very short launch occasionally
+// misses remote visits even though Safari did start. Allow the daemon time
+// to finish its first inbound fetch before reading the remote-origin rows.
+const ICLOUD_FETCH_WARMUP: Duration = Duration::from_secs(60);
 
 struct SyncLock(PathBuf);
 
@@ -166,36 +169,50 @@ impl Drop for HiddenSafari {
         if !safari_is_running() {
             return;
         }
-        // If somebody brought Safari to the foreground, don't close their app.
-        let still_hidden = Command::new("lsappinfo")
-            .args(["info", "-only", "hidden", "Safari"])
+        // AppleScript may unhide Safari when creating the harmless heartbeat,
+        // even if Safari never becomes the foreground application. Do not
+        // leak a background Safari process simply because Hidden=false.
+        // Still never interfere with a user's foreground Safari session.
+        let state = Command::new("lsappinfo")
+            .args(["info", "-only", "hidden,frontmost", "Safari"])
             .output()
             .ok()
-            .is_some_and(|output| {
-                output.status.success()
-                    && String::from_utf8_lossy(&output.stdout).contains("\"Hidden\"=true")
-            });
-        if !still_hidden {
+            .filter(|output| output.status.success());
+        let Some(state) = state else {
+            return;
+        };
+        let details = String::from_utf8_lossy(&state.stdout);
+        if details.contains("\"frontmost\"=true") {
             return;
         }
-        if self.created_heartbeats > 0 {
-            // Close only the unique heartbeat windows created by Rindle. Other
-            // tabs, windows and Safari browsing history are untouched.
-            let script = r#"tell application "Safari"
-repeat with n from (count of windows) to 1 by -1
-  try
-    set pageURL to URL of current tab of window n
-    if pageURL is not missing value and pageURL contains "rindle-sync-heartbeat=" then
-      close window n
-    end if
-  end try
-end repeat
+        // We started when Safari was not running, so it is safe to close the
+        // owned heartbeat windows. Other user websites always preserve Safari.
+        // A Safari favorites/start tab is created on ordinary app launch and
+        // isn't evidence that someone took ownership of this session.
+        let script = r#"tell application "Safari"
+    set hasUserPages to false
+    repeat with w in windows
+      try
+        set pageURL to URL of current tab of w
+        if pageURL is not missing value then
+          if pageURL does not contain "rindle-sync-heartbeat=" and pageURL does not start with "favorites:" and pageURL is not "about:blank" and pageURL does not start with "safari://startpage" then
+            set hasUserPages to true
+          end if
+        end if
+      on error
+        set hasUserPages to true
+      end try
+    end repeat
+    repeat with n from (count of windows) to 1 by -1
+      try
+        set pageURL to URL of current tab of window n
+        if pageURL is not missing value and pageURL contains "rindle-sync-heartbeat=" then close window n
+      end try
+    end repeat
+    if hasUserPages is false then quit
 end tell"#;
-            let _ = Command::new("osascript").args(["-e", script]).output();
-        }
-        let _ = Command::new("osascript")
-            .args(["-e", "tell application \"Safari\" to quit"])
-            .output();
+        let _ = self.created_heartbeats; // Session bookkeeping remains explicit.
+        let _ = Command::new("osascript").args(["-e", script]).output();
     }
 }
 

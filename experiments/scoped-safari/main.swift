@@ -167,6 +167,9 @@ if outcome == .OK, let selected = panel.url {
     do {
         let data = try selected.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
         try data.write(to: bookmarkFile(), options: [.atomic])
+        // The bookmark is a persistent capability: keep it readable only by
+        // this macOS user, even though the sandbox container is also private.
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: bookmarkFile().path)
         logResult("Saved a security-scoped bookmark in the helper's own sandbox container")
     } catch {
         logResult("Security-scoped bookmark save FAILED: \(error.localizedDescription)")

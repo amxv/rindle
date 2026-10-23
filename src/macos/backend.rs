@@ -14,6 +14,44 @@ use std::process::{Command, Stdio};
 const HELPER_ENV: &str = "RINDLE_SCOPED_SAFARI_HELPER";
 const MAX_HELPER_RESPONSE: usize = 8 * 1024 * 1024;
 
+/// Shells and launchd have different environments. Honor the installed job's
+/// helper when a user runs `rindle status` or `rindle sync` interactively.
+/// An explicitly isolated RINDLE_HOME never consults the user's job.
+fn configured_scoped_helper() -> Option<PathBuf> {
+    if let Some(explicit) = env::var_os(HELPER_ENV) {
+        return Some(PathBuf::from(explicit));
+    }
+    if env::var_os("RINDLE_HOME").is_some() {
+        return None;
+    }
+    let plist =
+        PathBuf::from(env::var_os("HOME")?).join("Library/LaunchAgents/xyz.rindle.sync.plist");
+    if !plist.is_file() {
+        return None;
+    }
+    let output = Command::new("plutil")
+        .args([
+            "-extract",
+            "EnvironmentVariables.RINDLE_SCOPED_SAFARI_HELPER",
+            "raw",
+            "-o",
+            "-",
+        ])
+        .arg(plist)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let value = String::from_utf8(output.stdout).ok()?;
+    let value = value.trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(value))
+    }
+}
+
 pub enum Backend {
     Scoped(Scoped),
     Direct(safari::Safari),
@@ -148,8 +186,8 @@ impl Scoped {
 
 impl Backend {
     pub fn open() -> Result<Self> {
-        if let Some(executable) = env::var_os(HELPER_ENV) {
-            return Ok(Self::Scoped(Scoped::new(PathBuf::from(executable))?));
+        if let Some(executable) = configured_scoped_helper() {
+            return Ok(Self::Scoped(Scoped::new(executable)?));
         }
         Ok(Self::Direct(safari::Safari::open()?))
     }
@@ -184,22 +222,22 @@ impl Backend {
     }
 
     pub fn synced_generation_read_only() -> Result<i64> {
-        if let Some(executable) = env::var_os(HELPER_ENV) {
-            return Ok(Scoped::new(PathBuf::from(executable))?.generations()?.1);
+        if let Some(executable) = configured_scoped_helper() {
+            return Ok(Scoped::new(executable)?.generations()?.1);
         }
         safari::Safari::synced_generation_read_only()
     }
 
     pub fn current_generation_read_only() -> Result<i64> {
-        if let Some(executable) = env::var_os(HELPER_ENV) {
-            return Ok(Scoped::new(PathBuf::from(executable))?.generations()?.0);
+        if let Some(executable) = configured_scoped_helper() {
+            return Ok(Scoped::new(executable)?.generations()?.0);
         }
         safari::Safari::current_generation_read_only()
     }
 
     pub fn visit_generation_read_only(url: &str) -> Result<Option<i64>> {
-        if let Some(executable) = env::var_os(HELPER_ENV) {
-            return Scoped::new(PathBuf::from(executable))?.visit_generation(url);
+        if let Some(executable) = configured_scoped_helper() {
+            return Scoped::new(executable)?.visit_generation(url);
         }
         safari::Safari::visit_generation_read_only(url)
     }

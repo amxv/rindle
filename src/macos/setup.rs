@@ -1,6 +1,7 @@
 //! Install the embedded extension, native host manifests, and a user LaunchAgent.
 //! Does not modify Safari or Chromium's existing history.
 use crate::cli::Browser;
+use crate::macos::backend;
 use crate::native::{EXTENSION_ID, HOST_NAME};
 use crate::state::{self, Store};
 use anyhow::{Context, Result, bail};
@@ -224,7 +225,13 @@ fn job_path() -> Result<PathBuf> {
     Ok(home()?.join(format!("Library/LaunchAgents/{SYNC_JOB}.plist")))
 }
 
-fn job_xml(binary: &Path, logfile: &Path) -> String {
+fn job_xml(binary: &Path, logfile: &Path, helper: Option<&Path>) -> String {
+    let scoped_env = helper.map_or(String::new(), |path| {
+        format!(
+            "<key>EnvironmentVariables</key><dict><key>RINDLE_SCOPED_SAFARI_HELPER</key><string>{}</string></dict>",
+            escape_xml(&path.to_string_lossy())
+        )
+    });
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -233,6 +240,7 @@ fn job_xml(binary: &Path, logfile: &Path) -> String {
 <key>ProgramArguments</key><array><string>{}</string><string>sync</string><string>--limit</string><string>{SYNC_BATCH_LIMIT}</string></array>
 <key>RunAtLoad</key><true/>
 <key>StartInterval</key><integer>{SYNC_INTERVAL}</integer>
+{scoped_env}
 <key>StandardOutPath</key><string>{}</string>
 <key>StandardErrorPath</key><string>{}</string>
 </dict></plist>
@@ -266,13 +274,13 @@ fn launchctl(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
-fn install_schedule(binary: &Path) -> Result<()> {
+fn install_schedule(binary: &Path, helper: Option<&Path>) -> Result<()> {
     let logdir = home()?.join("Library/Logs/Rindle");
     fs::create_dir_all(&logdir)?;
     let plist = job_path()?;
     write_file(
         &plist,
-        job_xml(binary, &logdir.join("sync.log")).as_bytes(),
+        job_xml(binary, &logdir.join("sync.log"), helper).as_bytes(),
         false,
     )?;
     let target = format!("gui/{}", uid()?);
@@ -347,8 +355,36 @@ fn show_schedule_health() -> Result<()> {
     Ok(())
 }
 
-pub fn run(browser: Browser, all: bool, no_schedule: bool) -> Result<()> {
+pub fn run(
+    browser: Browser,
+    all: bool,
+    no_schedule: bool,
+    scoped_helper: Option<PathBuf>,
+    allow_full_disk_access: bool,
+) -> Result<()> {
     let binary = env::current_exe()?.canonicalize()?;
+    let candidate =
+        state::app_dir()?.join("ScopedSafariHelper.app/Contents/MacOS/RindleScopedProbe");
+    let scoped_helper = if allow_full_disk_access {
+        None
+    } else if scoped_helper.is_some() {
+        scoped_helper
+    } else if candidate.is_file() {
+        Some(candidate)
+    } else {
+        None
+    };
+    // Fail before changing any of the user's host registrations or launchd
+    // schedule. New installations must not silently ask for Full Disk Access.
+    if !no_schedule && scoped_helper.is_none() && !allow_full_disk_access {
+        bail!(
+            "The folder-scoped Safari helper is not installed. Use the official Rindle installer. \
+             Direct SQLite history access requires explicit --allow-full-disk-access."
+        );
+    }
+    if !no_schedule && let Some(path) = &scoped_helper {
+        let _ = backend::Scoped::new(path.canonicalize()?)?;
+    }
     let store = Store::open()?;
     let extension = write_extension_bundle()?;
     let selected = if all {
@@ -365,17 +401,24 @@ pub fn run(browser: Browser, all: bool, no_schedule: bool) -> Result<()> {
         );
     }
     if !no_schedule {
-        install_schedule(&binary)?;
+        install_schedule(&binary, scoped_helper.as_deref())?;
         println!(
             "Background sync: every 3 hours, up to {SYNC_BATCH_LIMIT} URLs each way per run via macOS launchd"
         );
-        println!(
-            "macOS privacy: unattended Safari history access may require Full Disk Access for {}",
-            binary.display()
-        );
-        println!(
-            "Grant it under System Settings → Privacy & Security → Full Disk Access; verify with 'rindle status'."
-        );
+        if let Some(path) = &scoped_helper {
+            println!(
+                "Privacy: Safari history access is delegated to the sandboxed helper at {}; no Full Disk Access is needed for Rindle.",
+                path.display()
+            );
+        } else {
+            println!(
+                "macOS privacy: direct Safari history access may require Full Disk Access for {}",
+                binary.display()
+            );
+            println!(
+                "Grant it under System Settings → Privacy & Security → Full Disk Access; verify with 'rindle status'."
+            );
+        }
     } else {
         remove_schedule()?;
         println!("Background schedule: not enabled (--no-schedule)");
@@ -506,10 +549,17 @@ mod tests {
             parsed["allowed_origins"][0],
             format!("chrome-extension://{EXTENSION_ID}/")
         );
-        let plist = job_xml(&exe, &dir.path().join("rindle.log"));
+        let plist = job_xml(&exe, &dir.path().join("rindle.log"), None);
         assert!(plist.contains("&amp;"));
         assert!(plist.contains("<integer>10800</integer>"));
         assert!(plist.contains("<string>--limit</string><string>100</string>"));
+        let scoped = job_xml(
+            &exe,
+            &dir.path().join("rindle.log"),
+            Some(&dir.path().join("helper & app")),
+        );
+        assert!(scoped.contains("RINDLE_SCOPED_SAFARI_HELPER"));
+        assert!(scoped.contains("helper &amp; app"));
         Ok(())
     }
 

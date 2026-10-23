@@ -1,0 +1,94 @@
+name: Build notarized scoped Safari helper
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # No developer credentials are exposed to PRs. Standard macOS CI still
+    # compiles the sandboxed code without accessing any signing secrets.
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Require release signing and notarization credentials
+        shell: bash
+        env:
+          P12_BASE64: ${{ secrets.RINDLE_APPLE_DEVELOPER_ID_P12_B64 }}
+          P12_PASSWORD: ${{ secrets.RINDLE_APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_KEY_BASE64: ${{ secrets.RINDLE_APPLE_NOTARY_KEY_P8_B64 }}
+          NOTARY_KEY_ID: ${{ secrets.RINDLE_APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.RINDLE_APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          for key in P12_BASE64 P12_PASSWORD NOTARY_KEY_BASE64 NOTARY_KEY_ID NOTARY_ISSUER_ID; do
+            if [[ -z "${!key}" ]]; then
+              echo "Missing required macOS release credential: ${key}" >&2
+              exit 1
+            fi
+          done
+
+      - id: signing
+        name: Import Developer ID signing certificate
+        uses: Apple-Actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.RINDLE_APPLE_DEVELOPER_ID_P12_B64 }}
+          p12-password: ${{ secrets.RINDLE_APPLE_DEVELOPER_ID_P12_PASSWORD }}
+
+      - name: Select Developer ID Application identity
+        shell: bash
+        env:
+          IDENTITIES: ${{ steps.signing.outputs.identities }}
+        run: |
+          set -euo pipefail
+          identity=$(jq -r '[.[] | select(.name | startswith("Developer ID Application:"))][0].hash // empty' <<< "$IDENTITIES")
+          if [[ -z "$identity" ]]; then
+            echo 'No Developer ID Application certificate was imported; refusing release' >&2
+            exit 1
+          fi
+          echo "RINDLE_DEVELOPER_ID_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Package notarized universal helper
+        shell: bash
+        env:
+          NOTARY_KEY_BASE64: ${{ secrets.RINDLE_APPLE_NOTARY_KEY_P8_B64 }}
+          RINDLE_NOTARY_KEY_ID: ${{ secrets.RINDLE_APPLE_NOTARY_KEY_ID }}
+          RINDLE_NOTARY_ISSUER_ID: ${{ secrets.RINDLE_APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          temp_dir=$(mktemp -d)
+          trap 'rm -rf "$temp_dir"' EXIT
+          umask 077
+          printf '%s' "$NOTARY_KEY_BASE64" | base64 -D > "$temp_dir/AuthKey.p8"
+          export RINDLE_NOTARY_KEY_PATH="$temp_dir/AuthKey.p8"
+          ./scripts/package-scoped-helper.sh --release
+
+      - name: Verify notarized archive and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd target/distrib && shasum -a 256 -c rindle-scoped-helper-universal.zip.sha256)
+          mkdir -p "$RUNNER_TEMP/rindle-verify"
+          ditto -x -k target/distrib/rindle-scoped-helper-universal.zip "$RUNNER_TEMP/rindle-verify"
+          codesign --verify --strict --deep "$RUNNER_TEMP/rindle-verify/ScopedSafariHelper.app"
+          xcrun stapler validate "$RUNNER_TEMP/rindle-verify/ScopedSafariHelper.app"
+          lipo -archs "$RUNNER_TEMP/rindle-verify/ScopedSafariHelper.app/Contents/MacOS/RindleScopedProbe"
+
+      - name: Add scoped helper to cargo-dist release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-scoped-helper
+          path: |
+            target/distrib/rindle-scoped-helper-universal.zip
+            target/distrib/rindle-scoped-helper-universal.zip.sha256
+          if-no-files-found: error

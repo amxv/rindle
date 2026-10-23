@@ -23,7 +23,15 @@ pub fn run_with(cli: Cli) -> Result<()> {
             browser,
             all,
             no_schedule,
-        } => platform_setup(browser, all, no_schedule),
+            scoped_helper,
+            allow_full_disk_access,
+        } => platform_setup(
+            browser,
+            all,
+            no_schedule,
+            scoped_helper,
+            allow_full_disk_access,
+        ),
         Command::Sync { dry_run, limit } => platform_sync(dry_run, limit),
         Command::Status => platform_status(),
         Command::Uninstall => platform_uninstall(),
@@ -34,12 +42,30 @@ pub fn run_with(cli: Cli) -> Result<()> {
     }
 }
 
-fn platform_setup(browser: cli::Browser, all: bool, no_schedule: bool) -> Result<()> {
+fn platform_setup(
+    browser: cli::Browser,
+    all: bool,
+    no_schedule: bool,
+    scoped_helper: Option<std::path::PathBuf>,
+    allow_full_disk_access: bool,
+) -> Result<()> {
     #[cfg(target_os = "macos")]
-    return macos::setup::run(browser, all, no_schedule);
+    return macos::setup::run(
+        browser,
+        all,
+        no_schedule,
+        scoped_helper,
+        allow_full_disk_access,
+    );
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (browser, all, no_schedule);
+        let _ = (
+            browser,
+            all,
+            no_schedule,
+            scoped_helper,
+            allow_full_disk_access,
+        );
         anyhow::bail!("Rindle history sync currently requires macOS")
     }
 }

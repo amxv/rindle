@@ -9,6 +9,7 @@ Rindle is a macOS-only Rust CLI that synchronizes Safari/iCloud history with Dia
 - `src/cli.rs`: clap argument model.
 - `src/lib.rs`: command dispatch.
 - `src/macos/`: Safari SQLite adapter, unique generation-aligned Apple.com heartbeat(s), setup, and a user LaunchAgent.
+- `src/macos/backend.rs` and `experiments/scoped-safari/`: a sandboxed Swift helper with a user-approved security-scoped bookmark for ONLY `~/Library/Safari`; this is the default unattended backend. The old FDA-dependent direct SQLite adapter requires explicit opt-in. Never disable the sandbox or use an unsigned helper in a public release.
 - `src/state.rs`: local deduplicated browser history queue.
 - `src/native.rs`: browser-allowlisted, one-shot Native Messaging bridge.
 - `src/urls.rs`: privacy-oriented URL validation.
@@ -35,7 +36,7 @@ The pinned Rust version is in `rust-toolchain.toml`. Use Rust 2024, no unsafe co
 
 ## Releases and docs
 
-Direct distribution generates **Apple Silicon and Intel macOS only** archives, checksums, and one shell installer. There are no Windows/Linux release artifacts, npm/crates.io publications, or menu bar app. Native `upgrade` and optional daily `auto-update` come from the scaffold; upgrades are off by default. The history sync launchd job is a separate three-hour schedule installed by `rindle setup`.
+Direct distribution generates **Apple Silicon and Intel macOS only** CLI archives, a separate universal Developer ID-signed and notarized Swift helper `.zip` and checksum, and one shell installer. There are no Windows/Linux release artifacts, npm/crates.io publications, or menu bar app. Native `upgrade` and optional daily `auto-update` come from the scaffold; upgrades are off by default. The history sync launchd job is a separate three-hour schedule installed by `rindle setup` and must use the scoped helper by default.
 
 For releases, follow `.agents/skills/release/SKILL.md`. Change `dist-workspace.toml` and run `dist generate` when the release graph changes; commit the regenerated workflow.
 

@@ -5,7 +5,10 @@ members = ["cargo:."]
 cargo-dist-version = "0.32.0"
 ci = ["github"]
 installers = ["shell"]
-publish-jobs = []
+# Gate the GitHub Release on a signed and notarized scoped helper build.
+# A failing or missing Apple signing secret must prevent any release from
+# being publicly hosted, not leave a downloadable CLI without its helper.
+global-artifacts-jobs = ["./build-scoped-helper"]
 install-path = "CARGO_HOME"
 github-attestations = true
 targets = [

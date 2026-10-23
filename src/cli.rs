@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -41,6 +42,12 @@ pub enum Command {
         /// Register the browser without enabling the 3-hour macOS schedule.
         #[arg(long)]
         no_schedule: bool,
+        /// Use a signed sandboxed Safari helper with a saved folder bookmark instead of Full Disk Access.
+        #[arg(long, conflicts_with = "allow_full_disk_access")]
+        scoped_helper: Option<PathBuf>,
+        /// Explicitly opt in to the old direct SQLite backend requiring macOS Full Disk Access.
+        #[arg(long)]
+        allow_full_disk_access: bool,
     },
     /// Import new history in both directions (Safari opens hidden if needed).
     Sync {

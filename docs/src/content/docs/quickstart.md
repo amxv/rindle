@@ -8,7 +8,7 @@ summary: Register the native helper, load Dia's extension, and enable background
 
 Rindle lets you keep using **Safari on your iPhone** and **Dia on your Mac**, while syncing their visited URLs for autocomplete. It transfers history records, not webpage visits.
 
-**Caution:** The macOS Safari history write path is an experimental, unsupported interface. A local iCloud sync checkpoint does not prove the iPhone has received an imported URL. In testing, Safari sometimes logged upload errors even when that checkpoint advanced. A separate one-entry test through Safari's native `History.json` importer also failed the iPhone autocomplete check. The initial release remains on hold until the corrected hidden-heartbeat approach passes end-to-end device verification.
+**Compatibility:** The generation-aligned Safari history sync was verified end to end with iPhone Safari and Dia on macOS 26.3.1. It still uses Safari's private, undocumented history format. Rindle fails closed on schema changes and backs up each write batch, but future macOS changes may require maintenance.
 
 **The first Rindle release has not been published yet.** Use the [source instructions](#test-from-source) until then.
 
@@ -18,23 +18,21 @@ After the first release:
 
 ```sh
 curl -fsSL https://rindle.ashray.xyz/install.sh | sh
-rindle setup --browser dia
 ```
 
-Setup installs the native host and a macOS LaunchAgent that synchronizes every three hours. It also extracts the browser extension to `~/Library/Application Support/Rindle/extension`.
+The installer downloads and verifies the Intel/Apple Silicon CLI and a signed, notarized universal Safari helper. It installs the native host and a macOS LaunchAgent that synchronizes every three hours, and extracts the browser extension to `~/Library/Application Support/Rindle/extension`.
 
-### One-time background permission on macOS
+### One-time Safari folder permission on macOS
 
-Because Safari history is protected, the background LaunchAgent needs **Full Disk Access** independently of your Terminal or agent application. Open **System Settings → Privacy & Security → Full Disk Access**, click **+**, press `Cmd+Shift+G`, and add the installed Rindle executable (usually `~/.cargo/bin/rindle`). Enable its permission, then run:
+The installer opens Apple's normal folder picker. Select **`~/Library/Safari`**. Only the sandboxed Safari helper receives persistent access to this folder, using a security-scoped bookmark. Rindle does **not** require Full Disk Access for its standard automatic sync.
+
+To verify:
 
 ```sh
-launchctl kickstart -k gui/$(id -u)/xyz.rindle.sync
 rindle status
 ```
 
-Rindle reports `BLOCKED` if the last scheduled run lacked Safari history access. macOS requires you to approve Full Disk Access manually; Rindle never modifies privacy permissions itself.
-
-Full Disk Access grants substantially more authority than browsing-history access. Only approve it if you trust the installed Rindle executable. A safer, folder-scoped sandboxed helper has now passed independent LaunchAgent read and rollback-only write tests without FDA, though its complete unattended iCloud sync and release packaging remain experimental. Read [Privacy and permissions](/docs/privacy) before opting in.
+The Safari status should identify the **sandboxed, folder-scoped helper**. The initial release will not ship until its Developer ID signing and Apple notarization pass the release pipeline. See [Privacy and permissions](/docs/privacy).
 
 ## 2. Load the extension in Dia
 
@@ -72,7 +70,7 @@ node --test extension/utils.test.mjs
 ./target/debug/rindle sync --dry-run
 ```
 
-This test setup does **not** enable a recurring job. After installing the extension and verifying the local connection, run `rindle setup --browser dia` to turn on unattended syncing. macOS may require Full Disk Access for the Rindle executable or its launching terminal.
+This test setup does **not** enable a recurring job. To enable unattended sync from source, build and sign `experiments/scoped-safari`, select `~/Library/Safari` in its folder picker, and then use `rindle setup --browser dia --scoped-helper /absolute/path/to/RindleScopedProbe`. Rindle refuses to enable the legacy Full Disk Access backend without the explicit `--allow-full-disk-access` option.
 
 If Rindle displays **“Specified native messaging host not found”**, rerun `rindle setup --browser dia --no-schedule` to repair Dia's Chrome-compatible native-host registration, then reload the extension if needed. This does not launch Safari or change browser history. The shared registration also works when Chrome is configured separately.
 

@@ -57,6 +57,7 @@ dist-generate:
 release-tag version:
     #!/usr/bin/env bash
     set -euo pipefail
+    ./scripts/release-preflight.sh
     actual="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
     if [[ "$actual" != "{{version}}" ]]; then
       echo "Cargo.toml version is $actual, not {{version}}" >&2

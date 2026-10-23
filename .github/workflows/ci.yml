@@ -16,6 +16,7 @@ on:
       - "tests/**"
       - "extension/**"
       - "experiments/**"
+      - "scripts/**"
   pull_request:
     branches: [main]
     paths:
@@ -31,6 +32,7 @@ on:
       - "tests/**"
       - "extension/**"
       - "experiments/**"
+      - "scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -74,3 +76,13 @@ jobs:
 
       - name: Compile restricted Safari folder-access experiment
         run: ./experiments/scoped-safari/build.sh
+
+      - name: Validate universal scoped Safari helper archive (development only)
+        run: |
+          ./scripts/package-scoped-helper.sh --development
+          (cd target/distrib && shasum -a 256 -c rindle-scoped-helper-universal.zip.sha256)
+          mkdir -p "$RUNNER_TEMP/helper-check"
+          ditto -x -k target/distrib/rindle-scoped-helper-universal.zip "$RUNNER_TEMP/helper-check"
+          codesign --verify --strict "$RUNNER_TEMP/helper-check/ScopedSafariHelper.app"
+          lipo -archs "$RUNNER_TEMP/helper-check/ScopedSafariHelper.app/Contents/MacOS/RindleScopedProbe" | grep -q arm64
+          lipo -archs "$RUNNER_TEMP/helper-check/ScopedSafariHelper.app/Contents/MacOS/RindleScopedProbe" | grep -q x86_64
