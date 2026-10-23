@@ -60,6 +60,9 @@ jobs:
       # Only docs/** pushes reach this workflow. Vercel Git auto-deploys are
       # disabled so a Rust-only push consumes no deployment quota.
       - name: Deploy production docs to Vercel
+        # Vercel's Root Directory is docs/. Running from docs/ would resolve
+        # that as docs/docs and fail to find the project source directory.
+        working-directory: .
         if: >-
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
           github.ref == 'refs/heads/main' &&
