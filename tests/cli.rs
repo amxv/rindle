@@ -2,7 +2,7 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 
 fn cli() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_mycli"))
+    Command::new(env!("CARGO_BIN_EXE_rindle"))
 }
 
 #[test]
@@ -12,7 +12,9 @@ fn shows_help() {
         .assert()
         .success()
         .stdout(predicate::str::contains("Usage:"))
-        .stdout(predicate::str::contains("hello"));
+        .stdout(predicate::str::contains("upgrade"))
+        .stdout(predicate::str::contains("auto-update"))
+        .stdout(predicate::str::contains("hello").not());
 }
 
 #[test]
@@ -25,19 +27,19 @@ fn shows_version() {
 }
 
 #[test]
-fn greets_default_name() {
+fn describes_upgrade() {
     cli()
-        .arg("hello")
+        .args(["upgrade", "--help"])
         .assert()
         .success()
-        .stdout("Hello, world!\n");
+        .stdout(predicate::str::contains("--check"));
 }
 
 #[test]
-fn greets_a_name() {
+fn describes_auto_update() {
     cli()
-        .args(["hello", "agent"])
+        .args(["auto-update", "--help"])
         .assert()
         .success()
-        .stdout("Hello, agent!\n");
+        .stdout(predicate::str::contains("status"));
 }

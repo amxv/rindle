@@ -35,22 +35,20 @@ just docs-test
 just docs-check
 ```
 
-Astro check is sufficient locally; Vercel runs the production build when deploying.
+Astro check is sufficient locally; GitHub Actions builds the production output before deploying to Vercel.
 
 ## Vercel
 
 Set the Vercel project Root Directory to `docs` and connect its GitHub repo,
 but keep `git.deploymentEnabled: false` in the committed `vercel.json`. The
 `.github/workflows/docs.yml` workflow responds to `docs/**` changes on
-`main`, validates Astro, and deploys with the Vercel CLI. Rust-only, Swift-only,
-and Cargo changes never request a Vercel deployment, so they cannot use its
+`main`, validates Astro, and deploys with the Vercel CLI. Rust-only and
+Cargo changes never request a Vercel deployment, so they cannot use its
 daily deployment quota through this pipeline.
 
-After linking `docs/` to Vercel, run `just vercel-provision` in the generated
-repository **before** `just bootstrap-clean`. It mints a project-scoped CI
-token using the existing Vercel CLI login (or macOS Keychain as a fallback),
-stores `VERCEL_TOKEN` in Actions secrets and the two non-sensitive IDs in
-Actions variables. The GitHub workflow builds and deploys Astro's static
+The one-time setup provisions a project-scoped CI token as the `VERCEL_TOKEN`
+GitHub Actions secret and saves the two non-sensitive project IDs as Actions
+variables. The GitHub workflow builds and deploys Astro's static
 output with `--prebuilt`, avoiding broad settings calls that may fail with
 restricted tokens. Agents use only `just docs-check` for local Astro
 validation. `just docs-test` validates both the GitHub path

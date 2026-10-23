@@ -58,7 +58,7 @@ jobs:
           node scripts/prepare-prebuilt.mjs
 
       # Only docs/** pushes reach this workflow. Vercel Git auto-deploys are
-      # disabled so a Rust/Swift-only push consumes no deployment quota.
+      # disabled so a Rust-only push consumes no deployment quota.
       - name: Deploy production docs to Vercel
         if: >-
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&

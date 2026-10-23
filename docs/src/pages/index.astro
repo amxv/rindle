@@ -7,20 +7,20 @@ const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.
 
 const proofPoints = [
   {
-    title: "Rust at the root",
-    body: "Cargo, source, tests, toolchain, and release configuration stay obvious. Web tooling is isolated under docs/."
+    title: "Rust-first",
+    body: "A single Rust 2024 crate with clap, tests, and a pinned toolchain. No framework or runtime beyond the CLI itself."
   },
   {
-    title: "One release graph",
-    body: "dist builds native archives and derives shell, PowerShell, and npm installers from the same release artifacts."
+    title: "Direct distribution",
+    body: "cargo-dist is configured for macOS, Linux, and Windows archives, checksum files, and native installers. No npm package."
   },
   {
-    title: "Agent-friendly checks",
-    body: "A small Justfile exposes fast and full validation while keeping the underlying Cargo commands conventional."
+    title: "Simple development",
+    body: "Format, Clippy, tests, and builds are exposed through a small Justfile and standard Cargo commands."
   },
   {
-    title: "Docs without repo pollution",
-    body: "Astro and ZueDocs live in their own workspace and Vercel skips Rust-only changes."
+    title: "Independent docs",
+    body: "Astro and ZueDocs live under docs/. GitHub Actions deploys documentation only when the docs change."
   }
 ];
 ---
@@ -33,12 +33,11 @@ const proofPoints = [
 >
   <section class="hero shell">
     <div class="hero__copy">
-      <p class="section-label">Rust CLI starter</p>
-      <h1>Build the command. The release and docs machinery is already here.</h1>
+      <p class="section-label">Early-stage project</p>
+      <h1>Rindle.</h1>
       <p class="hero__lede">
-        mycli starts with a clean Rust application structure, strict checks, cross-platform
-        releases, installers, npm distribution, and a documentation site that stays out of
-        the Cargo workspace.
+        A minimal Rust CLI foundation. The application commands are still to come;
+        the build, test, documentation, and direct-release infrastructure is in place.
       </p>
       <div class="hero__actions">
         <a class="button button--solid" href="/docs/quickstart">Quickstart</a>
@@ -46,10 +45,10 @@ const proofPoints = [
       </div>
     </div>
     <aside class="hero__panel">
-      <p class="hero__panel-label">Typical edit loop</p>
+      <p class="hero__panel-label">Development</p>
       <div class="hero__terminal">
         <span>$ just check-fast</span>
-        <span>$ cargo run -- hello agent</span>
+        <span>$ cargo run -- --help</span>
         <span>$ just docs-dev</span>
         <span>$ dist plan</span>
       </div>
@@ -59,11 +58,10 @@ const proofPoints = [
   <section class="shell section-grid">
     <div class="section-heading">
       <p class="section-label">Baseline</p>
-      <h2>Everything around the idea is intentionally predictable.</h2>
+      <h2>The foundation is ready. The product comes next.</h2>
       <p>
-        Product code belongs in Rust modules. Release configuration belongs in dist-workspace.toml.
-        Documentation tooling belongs in docs/. The boundaries are visible before an agent
-        reads a single implementation file.
+        Rindle currently ships no application-specific behavior. Source code stays in Rust,
+        release configuration lives in dist-workspace.toml, and the site lives in docs/.
       </p>
     </div>
     <div class="proof-grid">
@@ -79,7 +77,7 @@ const proofPoints = [
   <section class="shell docs-teaser">
     <div class="section-heading">
       <p class="section-label">Documentation</p>
-      <h2>Start with the project flow, then go deeper only when you need it.</h2>
+      <h2>Setup, development, and release documentation.</h2>
     </div>
     <div class="docs-teaser__grid">
       {docs.map((entry) => (

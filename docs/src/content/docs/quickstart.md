@@ -1,49 +1,37 @@
 ---
 title: Quickstart
-description: Go from a fresh clone to a checked Rust CLI and local docs site.
+description: Clone Rindle and run the Rust CLI and documentation locally.
 order: 1
 category: Start
-summary: The shortest path from template clone to product code.
+summary: Build the CLI from source and get started with development.
 ---
 
-## Create the repository
+Rindle is an early-stage Rust CLI scaffold. It has release and update infrastructure but no application-specific commands yet. No GitHub Release has been published, so the direct installers are not usable until the first release.
+
+## Clone and check
+
+Install Rust with [rustup](https://rustup.rs/) and [just](https://github.com/casey/just), then:
 
 ```bash
-gh repo create acme/pluck \
-  --public \
-  --template amxv/rust-cli-template \
-  --clone
-cd pluck
-```
-
-## Initialize project identity
-
-```bash
-just bootstrap \
-  --cli-name pluck \
-  --npm-package @acme/pluck \
-  --description "A fast file picker" \
-  --license Apache-2.0 \
-  --rust-version 1.98.0
-```
-
-The bootstrap script detects the new GitHub origin and synchronizes Cargo, `dist`, docs, npm, license, and toolchain metadata.
-
-## Run the starter
-
-```bash
+git clone https://github.com/amxv/rindle.git
+cd rindle
 just check
 cargo run -- --help
-cargo run -- hello agent
 ```
 
-The starter command is intentionally tiny. Replace it rather than building abstractions around the greeting example.
+The exact Rust version is pinned in `rust-toolchain.toml`.
 
-## Run the docs site
+## Work on the CLI
+
+The command parser lives in `src/cli.rs`, with dispatch in `src/lib.rs` and implementations in `src/commands/`. Add product commands there and corresponding integration tests under `tests/`.
+
+## Run the docs locally
+
+Install [Bun](https://bun.sh/) and run:
 
 ```bash
 just docs-install
 just docs-dev
 ```
 
-The docs application lives completely under `docs/`, including its dependencies and Vercel configuration.
+The site runs from the isolated `docs/` directory, rather than adding JavaScript dependencies to the Rust package.

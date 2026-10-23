@@ -1,14 +1,13 @@
 ---
 title: Changelog
-description: Release notes for this CLI.
+description: Release history for Rindle.
 order: 99
 category: Distribution
-summary: User-facing release history.
+summary: What has shipped and what is still in progress.
 ---
 
-Keep the newest release first. Describe user-visible behavior and important installation or compatibility changes rather than copying raw commit subjects.
+## Unreleased
 
-## 0.1.0 - YYYY-MM-DD
-
-- Initial release.
-- Replace this placeholder with the first usable command set before tagging.
+- Created the minimal Rust CLI scaffold and documentation site.
+- Configured direct GitHub Releases for macOS, Linux, and Windows, with native installers and opt-in automatic updates.
+- No product commands or tagged release have been shipped yet.

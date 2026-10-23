@@ -1,12 +1,12 @@
 [package]
-name = "mycli"
+name = "rindle"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.98.0"
-description = "A Rust CLI starter with releases, npm distribution, and docs wired up"
+rust-version = "1.99.1"
+description = "Rindle CLI"
 license = "Apache-2.0"
-repository = "https://github.com/amxv/rust-cli-template"
-homepage = "https://github.com/amxv/rust-cli-template#readme"
+repository = "https://github.com/amxv/rindle"
+homepage = "https://rindle.ashray.xyz"
 readme = "README.md"
 publish = false
 include = ["/src/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE"]
@@ -17,7 +17,7 @@ categories = ["command-line-utilities"]
 dist = true
 
 [[bin]]
-name = "mycli"
+name = "rindle"
 path = "src/main.rs"
 
 [dependencies]

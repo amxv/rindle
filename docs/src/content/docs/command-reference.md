@@ -1,21 +1,28 @@
 ---
 title: Command reference
-description: A compact map of the starter CLI and repository commands.
+description: Rindle's current commands and repository development tasks.
 order: 4
 category: Reference
-summary: Cargo, Just, docs, bootstrap, and distribution commands in one place.
+summary: Built-in update commands, checks, and build helpers.
 ---
 
-## Starter CLI
+## CLI
 
 ```bash
-mycli --help
-mycli --version
-mycli hello
-mycli hello agent
+rindle --help
+rindle --version
+rindle upgrade --check
+rindle upgrade
+rindle auto-update on
+rindle auto-update status
+rindle auto-update off
 ```
 
-## Rust development
+`upgrade` and `auto-update` are part of the direct-distribution scaffold. They only become useful once a tagged GitHub Release is available. Automatic updates are off by default and must be enabled explicitly; `on` registers a daily user-owned system task.
+
+Rindle does not yet have any application-specific subcommands.
+
+## Development
 
 ```bash
 just check-fast
@@ -25,38 +32,17 @@ just build-release
 just run --help
 ```
 
-Equivalent primitives remain available directly:
+Under the hood, these use `cargo fmt`, `cargo check`, Clippy, and `cargo test` with a committed lockfile.
 
-```bash
-cargo fmt --all -- --check
-cargo check --locked
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-```
-
-## Docs
+## Docs and distribution
 
 ```bash
 just docs-install
 just docs-dev
 just docs-check
 just docs-test
-```
-
-## Distribution
-
-```bash
 dist plan
 dist generate
-just release-tag 0.2.0
 ```
 
-## Bootstrap
-
-```bash
-just bootstrap --help
-just bootstrap \
-  --cli-name pluck \
-  --npm-package @acme/pluck \
-  --description "A fast file picker"
-```
+Use `just release-tag <version>` only after preparing a release, validating the CLI, and updating the changelog. See [Releases and installers](/docs/releases).

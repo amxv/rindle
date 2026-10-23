@@ -11,6 +11,7 @@ pub fn run() -> Result<()> {
 
 pub fn run_with(cli: Cli) -> Result<()> {
     match cli.command {
-        Command::Hello(args) => commands::hello::run(args),
+        Command::AutoUpdate { action } => commands::auto_update::run(action),
+        Command::Upgrade { check, automatic } => commands::upgrade::run(check, automatic),
     }
 }

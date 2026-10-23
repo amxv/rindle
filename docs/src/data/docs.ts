@@ -1,12 +1,10 @@
-// Bootstrap edits only this identity block; prose pages remain project-owned.
 const generatedIdentity = {
-  name: "mycli",
-  strapline: "A Rust CLI ready to ship",
-  description:
-    "Documentation for mycli, a Rust command-line starter with tests, dist-powered releases, npm installation, and an isolated docs site.",
-  repoUrl: "https://github.com/amxv/rust-cli-template",
-  footerText: "A Rust CLI with build, release, installer, and documentation plumbing ready from the first commit.",
-  distributionText: "GitHub Releases and npm packages are driven by dist."
+  name: "Rindle",
+  strapline: "A Rust CLI foundation",
+  description: "Rindle is an early-stage Rust command-line project. The repository includes a minimal CLI, checks, documentation, and direct-release infrastructure.",
+  repoUrl: "https://github.com/amxv/rindle",
+  footerText: "A minimal Rust CLI, ready for its first product commands.",
+  distributionText: "Direct GitHub Releases with native installers; no npm publishing."
 } as const;
 
 export const siteConfig = {
