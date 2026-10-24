@@ -26,7 +26,7 @@ You don't need to reopen the webpage or leave Safari running on your Mac all day
 3. Rindle adds the missing address to Mac Safari's history.
 4. Safari's existing iCloud history sync carries it to your iPhone.
 
-Rindle may briefly open Safari on your Mac in the background to encourage iCloud syncing. It only visits a harmless, uniquely tagged Apple.com page—not the sites from your history.
+Rindle may launch Safari in the background to encourage iCloud syncing. It hides Safari again immediately after opening its harmless, uniquely tagged Apple.com heartbeat, then leaves the app hidden while iCloud sync runs. It never opens sites from your history.
 
 ## What moves—and what doesn't
 

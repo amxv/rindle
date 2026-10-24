@@ -6,6 +6,11 @@ category: Reference
 summary: Changes in the first release and future updates.
 ---
 
+## 0.1.2 — October 24, 2026
+
+- Immediately re-hide Safari after its harmless Apple.com heartbeat so the window no longer remains visible during the background iCloud sync wait. No additional macOS privacy permissions are required.
+- Preserve the working AppleScript heartbeat, iCloud checkpoint waiting, and user-owned Safari window behavior.
+
 ## 0.1.1 — October 24, 2026
 
 - Increased the unattended macOS history backfill limit from 100 to 300 URLs per direction every three hours. Manual sync limits remain unchanged.

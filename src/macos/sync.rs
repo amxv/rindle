@@ -72,6 +72,27 @@ fn exec_success(program: &str, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// Creating a Safari document can unhide the app despite `open -gj`.
+/// Restore the hidden state via AppKit rather than System Events, which would
+/// require a broad Accessibility grant. Keep the known-working AppleScript
+/// navigation separate: JXA's `make` may succeed without recording the visit.
+fn hide_safari_script() -> &'static str {
+    r#"ObjC.import("AppKit");
+const apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier("com.apple.Safari");
+if (Number(apps.count) < 1) throw Error("Safari exited during the heartbeat");
+apps.objectAtIndex(0).performSelector($.NSSelectorFromString("hide"));"#
+}
+
+fn safari_is_frontmost() -> bool {
+    Command::new("lsappinfo")
+        .args(["info", "-only", "frontmost", "Safari"])
+        .output()
+        .is_ok_and(|output| {
+            output.status.success()
+                && String::from_utf8_lossy(&output.stdout).contains("\"frontmost\"=true")
+        })
+}
+
 /// Own only Safari sessions started by Rindle. A user who activates Safari
 /// while the helper is running should be allowed to keep using it.
 struct HiddenSafari {
@@ -96,12 +117,23 @@ impl HiddenSafari {
     /// Open ONLY a newly tagged Apple.com URL, never an item from browser
     /// history. Each invocation must produce a distinct visit in Safari.
     fn heartbeat(&mut self) -> Result<String> {
+        // A user may bring Safari forward between the first and second
+        // generation-aligned heartbeats. Do not hide their session.
+        if self.created_heartbeats > 0 && safari_is_frontmost() {
+            bail!("Safari became frontmost; leaving the user-owned window visible")
+        }
         let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
         let url = format!("{HEARTBEAT_PREFIX}{}-{nonce}", std::process::id());
-        let script = format!(
+        // Keep the original AppleScript path: it is verified to register a
+        // distinct Safari history visit, unlike JXA document creation.
+        let navigation = format!(
             "tell application \"Safari\" to make new document with properties {{URL:\"{url}\"}}"
         );
-        exec_success("osascript", &["-e", &script])?;
+        exec_success("osascript", &["-e", &navigation])?;
+        exec_success(
+            "osascript",
+            &["-l", "JavaScript", "-e", hide_safari_script()],
+        )?;
         self.created_heartbeats += 1;
         Ok(url)
     }
@@ -339,6 +371,15 @@ mod tests {
         );
         assert!(MAX_SYNC_WAIT >= MIN_IDLE_AFTER_HEARTBEAT);
         assert_eq!(EXPORT_LIMIT_PER_RUN, 1000);
+    }
+
+    #[test]
+    fn heartbeat_hides_safari_immediately_after_creating_the_window() {
+        let script = hide_safari_script();
+        assert!(script.contains("NSRunningApplication.runningApplicationsWithBundleIdentifier"));
+        assert!(script.contains("performSelector($.NSSelectorFromString(\"hide\"))"));
+        assert!(!script.contains("System Events"));
+        assert!(!script.contains("activate"));
     }
 
     #[test]
