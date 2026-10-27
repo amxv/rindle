@@ -47,10 +47,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install Rust 1.99.1
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.1
+          toolchain: stable
           components: clippy,rustfmt
 
       - name: Cache Rust build

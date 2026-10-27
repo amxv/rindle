@@ -31,7 +31,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.99.1
+          toolchain: stable
           targets: ${{ matrix.target }}
 
       - name: Package CLI and ad-hoc-signed sandboxed app

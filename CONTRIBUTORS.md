@@ -4,7 +4,7 @@ Rindle is a macOS-only Safari/iCloud ↔ Chromium history sync service. Contribu
 
 ## Prerequisites
 
-- Rust from `rust-toolchain.toml` (currently 1.99.1)
+- Rust stable from `rust-toolchain.toml`
 - `just`
 - Node.js 22+ for the Manifest V3 extension tests
 - Bun for the documentation site

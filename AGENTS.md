@@ -32,7 +32,7 @@ just docs-check
 just release-plan
 ```
 
-The pinned Rust version is in `rust-toolchain.toml`. Use Rust 2024, no unsafe code, and obey Clippy's denied lints. Keep product logic in modules with tests, not in `main.rs`.
+The Rust stable channel is configured in `rust-toolchain.toml`. Use Rust 2024, no unsafe code, and obey Clippy's denied lints. Keep product logic in modules with tests, not in `main.rs`.
 
 ## Releases and docs
 
